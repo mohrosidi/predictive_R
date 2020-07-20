@@ -1,5 +1,10 @@
 # 1. import library -------
 
+if(!require(tidyverse)) install.packages("tidyverse")
+if(!require(rsample)) install.packages("rsample")
+if(!require(recipes)) install.packages("recipes")
+if(!require(caret)) install.packages("caret")
+
 library(tidyverse)
 library(caret)
 library(rsample)
@@ -27,8 +32,9 @@ test   <- testing(split)
 # 6. One-hot or dummy encode categorical features.
 
 blueprint <- recipe("<Model_formula>", data = train) %>%
-  # 1. remove nominal/categorical variabel with near zero values 
+  # 1. remove variabel with near zero values 
   step_nzv(all_nominal())  %>%
+  # step_zv(all_nominal()) %>%
   
   # 2. imputation to missing value
   # step_medianimpute("<Num_Var_name>") %>% # median imputation
@@ -47,7 +53,7 @@ blueprint <- recipe("<Model_formula>", data = train) %>%
   step_scale(all_numeric(), -all_outcomes()) %>%
   
   # 5. dimension reduction on numeric feature
-  step_pca(all_numeric(), -all_outcomes()) %>%
+  # step_pca(all_numeric(), -all_outcomes()) %>%
   
   # 6. one-hot or dummy encoding for categorical feature
   # step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE)
@@ -65,3 +71,4 @@ prepare
 baked_train <- bake(prepare, new_data = train)
 baked_test <- bake(prepare, new_data = test)
 baked_train
+

@@ -1,4 +1,7 @@
 # 1. import library -------
+if(!require(tidyverse)) install.packages("tidyverse")
+if(!require(rsample)) install.packages("rsample")
+if(!require(caret)) install.packages("caret")
 
 library(tidyverse)
 library(caret)
