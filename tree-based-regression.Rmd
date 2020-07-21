@@ -20,7 +20,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
 # Pengantar
@@ -29,14 +29,18 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
 
 # Dataset Ames
 
+
+
 # Persiapan {.tabset}
 
 ## Library
 
-```{r, cache=TRUE}
+```{r import-lib, cache=TRUE}
 # library pembantu
 library(plyr)
 library(e1071)
+library(foreach)
+library(import)
 library(tidyverse)
 library(rsample)
 library(recipes)
@@ -48,7 +52,7 @@ library(modeldata)
 library(caret) 
 library(rpart)
 library(ipred)
-library(ranger)
+library(randomForest)
 library(gbm)
 
 # paket penjelasan model
@@ -59,14 +63,14 @@ library(vip)
 
 ## Import Dataset
 
-```{r}
+```{r import-data, cache=TRUE}
 data("ames")
 ```
 
 
 # Data Splitting
 
-```{r, cache=TRUE}
+```{r data-split, cache=TRUE}
 set.seed(123)
 
 split  <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
@@ -75,15 +79,13 @@ ames_test   <- testing(split)
 ```
 
 
-```{r, cache=TRUE}
+```{r target-vis, cache=TRUE}
 # training set
 ggplot(ames_train, aes(x = Sale_Price)) + 
-  geom_density() + 
-  theme_classic()
+  geom_density() 
 # test set
 ggplot(ames_test, aes(x = Sale_Price)) + 
-  geom_density() + 
-  theme_classic()
+  geom_density() 
 ```
 
 
@@ -91,42 +93,42 @@ ggplot(ames_test, aes(x = Sale_Price)) +
 
 ## Ringkasan Data
 
-```{r, cache=TRUE}
+```{r glimpse, cache=TRUE}
 glimpse(ames_train)
 ```
 
-```{r, cache=TRUE}
+```{r skim, cache=TRUE}
 skim(ames_train)
 ```
 
-```{r, cache=TRUE}
+```{r missing-vis, cache=TRUE}
 plot_missing(ames_train)
 ```
 
 
 ## Variasi
 
-```{r, cache=TRUE}
-plot_histogram(ames_train)
+```{r hist, cache=TRUE}
+plot_histogram(ames_train, ncol = 2L, nrow = 2L)
 ```
 
-```{r, cache=TRUE}
-plot_bar(ames_train)
+```{r bar, cache=TRUE}
+plot_bar(ames_train, ncol = 2L, nrow = 2L)
 ```
 
-```{r, cache=TRUE}
+```{r nzv, cache=TRUE}
 nzvar <- nearZeroVar(ames_train, saveMetrics = TRUE) %>% 
   rownames_to_column() %>% 
   filter(nzv)
 nzvar
 ```
 
-```{r, cache=TRUE}
-without_nzvar <- select(ames, !nzvar$rowname)
+```{r wt-nzv, cache=TRUE}
+without_nzvar <- select(ames_train, !nzvar$rowname)
 skim(without_nzvar)
 ```
 
-```{r, cache=TRUE}
+```{r count-nominal, cache=TRUE}
 # MS_SubClass 
 count(ames_train, MS_SubClass) %>% arrange(n)
 # Neighborhood
@@ -144,7 +146,7 @@ plot_bar(without_nzvar)
 
 ## Kovarian
 
-```{r, cache=TRUE}
+```{r heatmap, cache=TRUE}
 plot_correlation(ames_train, type = "continuous", 
                  cor_args = list(method = "spearman"))
 ```
@@ -152,7 +154,7 @@ plot_correlation(ames_train, type = "continuous",
 
 # Target and Feature Engineering
 
-```{r, cache=TRUE}
+```{r preprocess, cache=TRUE}
 blueprint <- recipe(Sale_Price ~., data = ames_train) %>%
   # feature filtering
   step_nzv(all_nominal()) %>%
@@ -164,12 +166,12 @@ blueprint <- recipe(Sale_Price ~., data = ames_train) %>%
 blueprint
 ```
 
-```{r, cache=TRUE}
+```{r prep, cache=TRUE}
 prepare <- prep(blueprint, training = ames_train)
 prepare
 ```
 
-```{r, cache=TRUE}
+```{r baked, cache=TRUE}
 baked_train <- bake(prepare, new_data = ames_train)
 baked_test <- bake(prepare, new_data = ames_test)
 baked_train
@@ -200,76 +202,83 @@ cv <- trainControl(
 
 ```{r, cache=TRUE}
 system.time(
-dt_fit <- train(
+dt_fit_cv <- train(
   blueprint,
   data = ames_train,
   method = "rpart",
   trControl = cv,
-  tuneLength = 40,
+  tuneLength = 10,
   metric = "RMSE"
   )
 )
 
-dt_fit
+dt_fit_cv
 ```
 
-```{r, chace = TRUE}
+```{r dt-rmse, cache=TRUE}
+dt_rmse <- dt_fit_cv$results %>%
+  arrange(RMSE) %>%
+  slice(1) %>%
+  select(RMSE) %>% pull()
+
+dt_rmse
+```
+
+
+```{r dt-cv-vis, chace = TRUE}
 # visualisasi
-ggplot(dt_fit)
+ggplot(dt_fit_cv)
 ```
 
 
-## Membangun Model AKhir
+## Model Akhir
 
-```{r, cache=TRUE}
-dt_fit <- rpart(
-  formula = Sale_Price ~ .,
-  data    = ames_train,
-  method  = "anova",
-  control = list(cp = 0.0001200634)
-)
+```{r dt-final, cache=TRUE}
+dt_fit <- dt_fit_cv$finalModel
 ```
 
 
-```{r, cache=TRUE}
+```{r dt-vis, cache=TRUE}
 # visualisasi
 rpart.plot(dt_fit)
 ```
 
-```{r, cache=TRUE}
-pred_train <- predict(dt_fit, ames_train)
-residual <- mutate(ames_train, residual = Sale_Price - pred_train)
+```{r dt-res-vis, cache=TRUE}
+pred_train <- predict(dt_fit, baked_train)
+residual <- mutate(baked_train, residual = Sale_Price - pred_train)
 
 # resiual vs actual
-ggplot(residual, aes(x = Sale_Price, y = residual)) +
+sp <- ggplot(residual, aes(x = Sale_Price, y = residual)) +
   geom_point()
 # residual distribution
-ggplot(residual, aes(x = residual)) +
+hs <- ggplot(residual, aes(x = residual)) +
   geom_histogram()
+
+gridExtra::grid.arrange(sp, hs, ncol = 2)
 ```
 
 
-```{r}
+```{r dt-rmse-test, cache=TRUE}
 # prediksi Sale_Price ames_test
-pred_test <- predict(dt_fit, ames_test)
+pred_test <- predict(dt_fit, baked_test)
 
 ## RMSE
-RMSE(pred_test, ames_test$Sale_Price, na.rm = TRUE)
+RMSE(pred_test, baked_test$Sale_Price, na.rm = TRUE)
 ```
 
 
 ## Tingkat Kepentingan Variabel
 
-```{r}
-vip(dt_fit, num_features = 10)
+```{r dt-vip, cache=TRUE}
+vip(dt_fit_cv, num_features = 10)
 ```
 
 
 # Bagging
 
-## Membangun Model dan Validasi Silang
+## Validasi Silang
 
-```{r, cache=TRUE}
+```{r bag-cv, cache=TRUE}
 # spesifikasi metode validasi silang
 cv <- trainControl(
   # possible value: "boot", "boot632", "optimism_boot", "boot_all", "cv", 
@@ -282,9 +291,9 @@ cv <- trainControl(
 ```
 
 
-```{r, cache=TRUE}
+```{r bag-fit, cache=TRUE}
 system.time(
-bag_fit <- train(
+bag_fit_cv <- train(
   blueprint,
   data = ames_train,
   method = "treebag",
@@ -293,125 +302,138 @@ bag_fit <- train(
   )
 )
 
-bag_fit
+bag_fit_cv
 ```
 
-```{r, cache=TRUE}
-pred_train <- predict(bag_fit, ames_train)
-residual <- mutate(ames_train, residual = Sale_Price - pred_train)
+```{r bag-rmse, cache=TRUE}
+bag_rmse <- bag_fit_cv$results %>%
+  arrange(RMSE) %>%
+  slice(1) %>%
+  select(RMSE) %>% pull()
+
+bag_rmse
+```
+
+## Model AKhir
+
+
+```{r bag-final, cache=TRUE}
+bag_fit <- bag_fit_cv$finalModel
+```
+
+
+```{r bag-res-vis, cache=TRUE}
+pred_train <- predict(bag_fit, baked_train)
+residual <- mutate(baked_train, residual = Sale_Price - pred_train)
 
 # resiual vs actual
-ggplot(residual, aes(x = Sale_Price, y = residual)) +
+sc <- ggplot(residual, aes(x = Sale_Price, y = residual)) +
   geom_point()
 # residual distribution
-ggplot(residual, aes(x = residual)) +
+hs <- ggplot(residual, aes(x = residual)) +
   geom_histogram()
+
+gridExtra::grid.arrange(sc, hs, ncol = 2)
 ```
 
-```{r}
+```{r bag-rmse-test, cache=TRUE}
 # prediksi Sale_Price ames_test
-pred_test <- predict(dt_fit, ames_test)
+pred_test <- predict(bag_fit, baked_test)
 
 ## RMSE
-RMSE(pred_test, ames_test$Sale_Price, na.rm = TRUE)
+RMSE(pred_test, baked_test$Sale_Price, na.rm = TRUE)
 ```
 
 ## Tingkat Kepentingan Variabel
 
-```{r}
-vip(bag_fit, num_features = 10)
+```{r bag-vip, cache=TRUE}
+vip(bag_fit_cv, num_features = 10)
 ```
 
 # Random Forest
 
 ## Validasi Silang dan Parameter Tuning
 
-```{r, cache=TRUE}
+```{r rf-cv, cache=TRUE}
 # spesifikasi metode validasi silang
 cv <- trainControl(
   # possible value: "boot", "boot632", "optimism_boot", "boot_all", "cv", 
   #                 "repeatedcv", "LOOCV", "LGOCV"
   method = "cv", 
-  number = 10, 
+  number = 10,
+  search = "random",
   # repeats = 5,
   allowParallel = TRUE
 )
 ```
 
-```{r, cache=TRUE}
-n_features <- length(setdiff(names(ames_train), "Sale_Price"))
-hyper_grid <- expand.grid(
-  mtry = floor(n_features * c(.05, .15, .25, .333, .4)),
-  min.node.size = c(1, 3, 5, 10),
-  splitrule = c("variance", "extratrees", "maxstat", "beta" )
-)
-```
-
-
-```{r, cache=TRUE}
+```{r rf-fit, cache=TRUE}
+# membuat model
 system.time(
-rf_fit <- train(
+rf_fit_cv <- train(
   blueprint,
   data = ames_train,
-  method = "ranger",
+  method = "parRF",
   trControl = cv,
-  tuneGrid = hyper_grid,
+  tuneLength = 20,
   metric = "RMSE"
   )
 )
 
-rf_fit
+rf_fit_cv
 ```
 
-```{r, chace = TRUE}
+```{r rf-rmse, cache=TRUE}
+rf_rmse <- rf_fit_cv$results %>%
+  arrange(RMSE) %>%
+  slice(1) %>%
+  select(RMSE) %>% pull()
+```
+
+```{r rf-vis, chace = TRUE}
 # visualisasi
-ggplot(rf_fit)
+ggplot(rf_fit_cv)
 ```
 
-## Membangun Model AKhir
+## Model AKhir
 
-```{r, cache=TRUE}
-rf_fit <- ranger(
-  formula = Sale_Price ~ .,
-  data    = ames_train,
-  mtry  = 29,
-  min.node.size = 5,
-  importance = "impurity",
-  splitrule = "variance"
-)
+```{r rf-final, cache=TRUE}
+rf_fit <- rf_fit_cv$finalModel
 ```
 
-```{r, cache=TRUE}
-pred_train <- predict(rf_fit, ames_train)$prediction
-residual <- mutate(ames_train, residual = Sale_Price - pred_train)
+```{r rf-resid-vis, cache=TRUE}
+pred_train <- predict(rf_fit, baked_train)$prediction
+residual <- mutate(baked_train, residual = Sale_Price - pred_train)
 
 # resiual vs actual
-ggplot(residual, aes(x = Sale_Price, y = residual)) +
+sc <- ggplot(residual, aes(x = Sale_Price, y = residual)) +
   geom_point() 
 # residual distribution
-ggplot(residual, aes(x = residual)) +
-  geom_histogram() 
+hs <- ggplot(residual, aes(x = residual)) +
+  geom_histogram()
+
+gridExtra::grid.arrange(sp, hs, ncol = 2)
 ```
 
-```{r, cache=TRUE}
+```{r rf-rmse-test, cache=TRUE}
 # prediksi Sale_Price ames_test
-pred_test <- predict(rf_fit, ames_test)$prediction
+pred_test <- predict(rf_fit, baked_test)$prediction
 
 ## RMSE
-RMSE(pred_test, ames_test$Sale_Price, na.rm = TRUE)
+RMSE(pred_test, baked_test$Sale_Price, na.rm = TRUE)
 ```
 
 ## Tingkat Kepentingan Variabel
 
-```{r, cache=TRUE}
-vip(rf_fit, num_features = 10)
+```{r rf-vip, cache=TRUE}
+vip(rf_fit_cv, num_features = 10)
 ```
 
 # Boosting
 
 ## Validasi Silang dan Parameter Tuning
 
-```{r, cache=TRUE}
+```{r boost-cv, cache=TRUE}
 # spesifikasi metode validasi silang
 cv <- trainControl(
   # possible value: "boot", "boot632", "optimism_boot", "boot_all", "cv", 
@@ -423,7 +445,7 @@ cv <- trainControl(
 )
 ```
 
-```{r, cache=TRUE}
+```{r boost-grid, cache=TRUE}
 hyper_grid <- expand.grid(
   n.trees = 6000,
   shrinkage = 0.01,
@@ -432,9 +454,9 @@ hyper_grid <- expand.grid(
 )
 ```
 
-```{r, cache=TRUE}
+```{r boost-fit, cache=TRUE}
 system.time(
-gb_fit <- train(
+gb_fit_cv <- train(
   blueprint,
   data = ames_train,
   method = "gbm",
@@ -445,41 +467,64 @@ gb_fit <- train(
   )
 )
 
-gb_fit
+gb_fit_cv
 ```
 
-## Membangun Model Akhir
-
-```{r, cache=TRUE}
-gb_fit <- gbm(
-  formula = Sale_Price ~ .,
-  data = ames_train,
-  n.trees = 6000,
-  interaction.depth = 7,
-  shrinkage = 0.01,
-  n.minobsinnode = 15,
-  verbose = FALSE
-  )  
+```{r boost-rmse, cache=TRUE}
+rf_rmse <- gb_fit_cv$results %>%
+  arrange(RMSE) %>%
+  slice(1) %>%
+  select(RMSE) %>% pull()
 ```
 
-```{r, cache=TRUE}
-pred_train <- predict(gb_fit, n.trees = gb_fit$n.trees, ames_train)
-residual <- mutate(ames_train, residual = Sale_Price - pred_train)
+## Model Akhir
+
+```{r boost-final, cache=TRUE}
+gb_fit <- gb_fit_cv$finalModel
+```
+
+
+```{r boost-resid, cache=TRUE}
+pred_train <- predict(gb_fit, n.trees = gb_fit$n.trees,
+                      baked_train)
+residual <- mutate(baked_train, residual = Sale_Price - pred_train)
 
 # resiual vs actual
-ggplot(residual, aes(x = Sale_Price, y = residual)) +
+sc <- ggplot(residual, aes(x = Sale_Price, y = residual)) +
   geom_point() 
 # residual distribution
-ggplot(residual, aes(x = residual)) +
+hs <- ggplot(residual, aes(x = residual)) +
   geom_histogram()
+
+gridExtra::grid.arrange(sp, hs, ncol = 2)
 ```
 
-```{r, cache=TRUE}
+```{r boost-test-rmse, cache=TRUE}
 # prediksi Sale_Price ames_test
-pred_test <- predict(gb_fit, n.trees = gb_fit$n.trees, ames_test)
+pred_test <- predict(gb_fit, n.trees = gb_fit$n.trees,
+                     baked_test)
 
 ## RMSE
-RMSE(pred_test, ames_test$Sale_Price, na.rm = TRUE)
+RMSE(pred_test, baked_test$Sale_Price, na.rm = TRUE)
+```
+
+## Tingkat Kepentingan Variabel
+
+```{r boost-vip, cache=TRUE}
+vip(gb_fit_cv, num_features = 10)
+```
+
+
+
+
+
+
+
+
+
+
+
+_test, ames_test$Sale_Price, na.rm = TRUE)
 ```
 
 ## Tingkat Kepentingan Variabel
