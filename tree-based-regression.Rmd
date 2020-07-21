@@ -367,6 +367,12 @@ cv <- trainControl(
 )
 ```
 
+```{r rf-grid, cache=TRUE}
+hyper_grid <- expand.grid(
+  mtry = seq(10, 30, by = 2)
+)
+```
+
 ```{r rf-fit, cache=TRUE}
 # membuat model
 system.time(
@@ -375,7 +381,7 @@ rf_fit_cv <- train(
   data = ames_train,
   method = "parRF",
   trControl = cv,
-  tuneLength = 20,
+  tuneGrid = hyper_grid,
   metric = "RMSE"
   )
 )
@@ -388,6 +394,8 @@ rf_rmse <- rf_fit_cv$results %>%
   arrange(RMSE) %>%
   slice(1) %>%
   select(RMSE) %>% pull()
+
+rf_rmse
 ```
 
 ```{r rf-vis, chace = TRUE}
@@ -402,7 +410,7 @@ rf_fit <- rf_fit_cv$finalModel
 ```
 
 ```{r rf-resid-vis, cache=TRUE}
-pred_train <- predict(rf_fit, baked_train)$prediction
+pred_train <- predict(rf_fit, baked_train)
 residual <- mutate(baked_train, residual = Sale_Price - pred_train)
 
 # resiual vs actual
@@ -417,7 +425,7 @@ gridExtra::grid.arrange(sp, hs, ncol = 2)
 
 ```{r rf-rmse-test, cache=TRUE}
 # prediksi Sale_Price ames_test
-pred_test <- predict(rf_fit, baked_test)$prediction
+pred_test <- predict(rf_fit, baked_test)
 
 ## RMSE
 RMSE(pred_test, baked_test$Sale_Price, na.rm = TRUE)
@@ -426,7 +434,7 @@ RMSE(pred_test, baked_test$Sale_Price, na.rm = TRUE)
 ## Tingkat Kepentingan Variabel
 
 ```{r rf-vip, cache=TRUE}
-vip(rf_fit_cv, num_features = 10)
+vip(rf_fit, num_features = 10)
 ```
 
 # Boosting
@@ -471,11 +479,18 @@ gb_fit_cv
 ```
 
 ```{r boost-rmse, cache=TRUE}
-rf_rmse <- gb_fit_cv$results %>%
+boost_rmse <- gb_fit_cv$results %>%
   arrange(RMSE) %>%
   slice(1) %>%
   select(RMSE) %>% pull()
+
+boost_rmse
 ```
+
+```{r boost-vis, cache=TRUE}
+ggplot(gb_fit_cv)
+```
+
 
 ## Model Akhir
 
@@ -517,21 +532,14 @@ vip(gb_fit_cv, num_features = 10)
 
 
 
+# Ringkasan Model
 
 
+```{r table, cache=TRUE}
+table <- tibble(Model = c("Decision Tree", "Bagging", "Random Forest", "Gradient Boosting"),
+                RMSE = c(dt_rmse, bag_rmse, rf_rmse, boost_rmse))
 
-
-
-
-
-_test, ames_test$Sale_Price, na.rm = TRUE)
+table
 ```
-
-## Tingkat Kepentingan Variabel
-
-```{r, cache=TRUE}
-vip(gb_fit, num_features = 10)
-```
-
 
 
