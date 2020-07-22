@@ -778,6 +778,22 @@ beberapa model melintasi spektrum \(\alpha\) dan menggunakan teknik
 validasi silang untuk mengidentifikasi \(\alpha\) optimal dan sub-pohon
 optimal.
 
+## Kelebihan dan Kekurangan
+
+Terdapat sejumlah kelebihan penggunaan *decision trees*, antara lain:
+
+* Mudah ditafsirkan.
+* Dapat membuat prediksi cepat (tidak ada perhitungan rumit, hanya mencari konstanta di pohon).
+* Sangat mudah untuk memahami variabel apa yang penting dalam membuat prediksi. Node internal (splits) adalah variabel-variabel yang sebagian besar mereduksi SSE.
+* Jika ada beberapa data yang hilang, kita mungkin tidak bisa pergi jauh-jauh ke bawah pohon menuju daun, tetapi kita masih bisa membuat prediksi dengan merata-rata semua daun di sub-pohon yang kita jangkau.
+* Model ini memberikan respons “bergerigi” non-linier, sehingga dapat bekerja saat permukaan regresi yang sebenarnya tidak mulus. Jika halus, permukaan konstan-piecewise dapat memperkirakannya secara dekat (dengan cukup daun).
+* Ada algoritma yang cepat dan andal untuk mempelajari pohon-pohon ini.
+
+Selain kelebihan, terdapat kekurangan dalam penggunaan *decision trees*, antara lain:
+
+* Pohon regresi tunggal memiliki varian yang tinggi, menghasilkan prediksi yang tidak stabil (subsampel alternatif dari data *training* dapat secara signifikan mengubah node terminal).
+* Karena varians tinggi pohon regresi tunggal memiliki akurasi prediksi yang buruk.
+
 ## Validasi Silang dan Parameter Tuning
 
 Langkah pertama yang perlu dilakukan dalam melakukan kegiatan validasi
@@ -999,3 +1015,505 @@ Hal ini sesuai dengan statemen yang telah dijelaskan di awal bahwa
 *impuritas* dalam pembagiannya. Pada kurva relasi juga dapat dilihat
 bahwa kenaikan nilai kedua fitur tersebut mempengaruhi kenaikan nilai
 variabel `Sale_Price`.
+
+# Bagging
+
+Seperti disebutkan sebelumnya, model pohon tunggal memiliki kekurangan,
+yaitu: varian yang tinggi. Hal ini berarti algoritma *decision tress*
+memodelkan *noise* dalam data *training*-nya. Meskipun pemangkasan pohon
+yang terbentuk membantu mengurangi varians ini, ada metode alternatif
+yang sebenarnya mengeksploitasi variabilitas pohon tunggal dengan cara
+yang secara signifikan dapat meningkatkan kinerja lebih dan di atas
+pohon tunggal. Agregat bootstrap (bagging) adalah salah satu pendekatan
+yang dapat digunakan (awalnya diusulkan oleh
+[Breiman, 1996](https://link.springer.com/article/10.1023%2FA%3A1018054314350)).
+
+Bagging menggabungkan dan merata-rata beberapa model. Rata-rata di
+beberapa pohon mengurangi variabilitas dari satu pohon dan mengurangi
+overfitting dan meningkatkan kinerja prediksi. Bagging mengikuti tiga
+langkah sederhana:
+
+1.  Buat sampel [bootstrap](http://uc-r.github.io/bootstrapping) \(m\)
+    dari data *training*. Sampel bootstrap memungkinkan kita untuk
+    membuat banyak set data yang sedikit berbeda tetapi dengan
+    distribusi yang sama dengan set data *training* secara keseluruhan.
+2.  Untuk setiap sampel bootstrap, latih satu pohon regresi tanpa
+    melakukan pemangkasan (*unpruned*)
+3.  Lakukan prediksi data *test* pada tiap pohon yang terbentuk dari
+    setiap pohon. Hasil prediksi masing-masing pohon selanjutnya
+    dirata-rata.
+
+![Proses bagging (Sumber:
+<http://uc-r.github.io/>)](http://uc-r.github.io/public/images/analytics/regression_trees/bagging3.png)
+
+Proses ini sebenarnya dapat diterapkan pada model regresi atau
+klasifikasi apa pun; Namun, metode ini memberikan peningkatan terbesar
+pada model yang memiliki varian tinggi. Sebagai contoh, model parametrik
+yang lebih stabil seperti regresi linier dan splines regresi
+multi-adaptif cenderung kurang mengalami peningkatan dalam kinerja
+prediksi.
+
+Salah satu manfaat bagging adalah rata-rata, sampel bootstrap akan
+berisi 63% (2/3) bagian dari data *training*. Ini menyisakan sekitar 33%
+(1/3) data dari sampel yang di-bootstrap. Kita dapat menyebutnya sebagai
+sampel *out-of-bag* (OOB). Kita dapat menggunakan pengamatan OOB untuk
+memperkirakan akurasi model, menciptakan proses validasi silang alami.
+
+## Validasi Silang
+
+Spesifikasi validasi silang yang digunakan untuk membuat model bagging
+sama dengan spesifikasi validasi silang model *decission tree*.
+Perbedaannya adalah pada argumen `trainControl()` tidak ditambahkan
+argumen `sample`. Hal ini disebabkan pada model bagging yang dibuat ini
+tidak dilakukan *parameter tuning*.
+
+``` r
+# spesifikasi metode validasi silang
+cv <- trainControl(
+  # possible value: "boot", "boot632", "optimism_boot", "boot_all", "cv", 
+  #                 "repeatedcv", "LOOCV", "LGOCV"
+  method = "cv", 
+  number = 10,
+  # repeats = 5,
+  allowParallel = TRUE
+)
+```
+
+Agumen `method` yang digunakan dalam model ini adalah `"treebag"` yang
+merupakan `method` yang digunakan jika model bagging yang akan dibuat
+menggunakan paket `ipred`.
+
+``` r
+system.time(
+bag_fit_cv <- train(
+  blueprint,
+  data = ames_train,
+  method = "treebag",
+  trControl = cv,
+  importance = TRUE
+  )
+)
+```
+
+    ##    user  system elapsed 
+    ##  13.707   0.117  14.017
+
+``` r
+bag_fit_cv
+```
+
+    ## Bagged CART 
+    ## 
+    ## 2053 samples
+    ##   73 predictor
+    ## 
+    ## Recipe steps: nzv, integer, center, scale 
+    ## Resampling: Cross-Validated (10 fold) 
+    ## Summary of sample sizes: 1848, 1846, 1848, 1846, 1848, 1849, ... 
+    ## Resampling results:
+    ## 
+    ##   RMSE      Rsquared   MAE     
+    ##   36081.25  0.8055651  24678.24
+
+Proses *training* model berlangsung selama 14.053 detik dengan rata-rata
+**RMSE** yang diperoleh sebesar 36388.33. Nilai ini merupakan
+peningkatan dari model *decision trees* yang telah dibuat sebelumnya.
+
+``` r
+bag_rmse <- bag_fit_cv$results %>%
+  arrange(RMSE) %>%
+  slice(1) %>%
+  select(RMSE) %>% pull()
+
+bag_rmse
+```
+
+    ## [1] 36081.25
+
+## Model AKhir
+
+Pada tahapan ini, model yang telah di-*training*, diekstrak model
+akhirnya.
+
+``` r
+bag_fit <- bag_fit_cv$finalModel
+```
+
+Untuk melihat performa sebuah model regresi dalam melakukan prediksi,
+kita dapat melihat plot residu dari model. Untuk melakukannya, jalankan
+sintaks berikut:
+
+``` r
+pred_train <- predict(bag_fit, baked_train)
+residual <- mutate(baked_train, residual = Sale_Price - pred_train)
+
+# resiual vs actual
+sc <- ggplot(residual, aes(x = Sale_Price, y = residual)) +
+  geom_point()
+# residual distribution
+hs <- ggplot(residual, aes(x = residual)) +
+  geom_histogram()
+
+gridExtra::grid.arrange(sc, hs, ncol = 2)
+```
+
+![](temp_files/figure-gfm/bag-res-vis-1.png)<!-- -->
+
+Pola residu yang terbentuk pada model bagging sama dengan model
+*decision trees* yang menunjukkan model kesulitan untuk memprediksi
+nilai `Sale_Price` di atas 400.000.
+
+Adapun performa model bagging pada data baru dapat dicek dengan mengukur
+nilai **RMSE** model menggunakan data *test*.
+
+``` r
+# prediksi Sale_Price ames_test
+pred_test <- predict(bag_fit, baked_test)
+
+## RMSE
+RMSE(pred_test, baked_test$Sale_Price, na.rm = TRUE)
+```
+
+    ## [1] 36131.18
+
+## Interpretasi Fitur
+
+Untuk melakukan interpretasi terhadap fitur paling berpengaruh dalam
+model bagging, kita dapat emngetahuinya melalui *varibale importance
+plot*.
+
+``` r
+vip(bag_fit_cv, num_features = 10)
+```
+
+![](temp_files/figure-gfm/bag-vip-1.png)<!-- -->
+
+Berdasarkan hasil plot, terdapat dua buah variabel paling berpengaruh,
+yaitu: `Gr_Liv_Area` dan `Total_Bsmt_SF`. Untuk melihat efek dari kedua
+variabel tersebut terhadap prediksi yang dihasilkan model, kita dapat
+mengetahuinya melalui *patial plot dependencies*.
+
+``` r
+p1 <- pdp::partial(bag_fit_cv, pred.var = "Gr_Liv_Area") %>% autoplot()
+p2 <- pdp::partial(bag_fit_cv, pred.var = "Total_Bsmt_SF") %>% autoplot()
+p3 <- pdp::partial(bag_fit_cv, pred.var = c("Gr_Liv_Area", "Total_Bsmt_SF")) %>% 
+  pdp::plotPartial(levelplot = FALSE, zlab = "yhat", drape = TRUE, 
+              colorkey = TRUE, screen = list(z = -20, x = -60))
+
+
+gridExtra::grid.arrange(p1, p2, p3, 
+                        ncol=2)
+```
+
+![](temp_files/figure-gfm/bag-pdp-1.png)<!-- -->
+
+Berdasarkan output yang dihasilkan, kedua variabel tersebut memiliki
+relasi non-linier dengan variabel `Sale_Price`. Pola unik yang terbentuk
+pada plot model bagging yang juga terjadi pada *decision tree* adalah
+kurva yang terbentuk landai pada awal dan naik secara cepat pada rentang
+nilai yang pendek dan melandai pada akhir dari rentang nilai variabel.
+
+# Random Forest
+
+Bagging (agregasi bootstrap) adalah teknik yang dapat mengubah model
+pohon tunggal dengan varian tinggi dan kemampuan prediksi yang buruk
+menjadi fungsi prediksi yang cukup akurat. Sayangnya, bagging biasanya
+kekurangan, yiatu: adanya korelasi pada tiap pohon yang mengurangi
+kinerja keseluruhan model. *Random forest* adalah modifikasi bagging
+yang membangun koleksi besar pohon yang tidak berkorelasi dan telah
+menjadi algoritma pembelajaran “out-of-the-box” yang sangat populer yang
+dengan kinerja prediksi yang baik.
+
+*Random forest* dibangun di atas prinsip-prinsip dasar yang sama seperti
+*decision tress* dan bagging. Bagging memperkenalkan komponen acak ke
+dalam proses pembangunan pohon yang mengurangi varian prediksi pohon
+tunggal dan meningkatkan kinerja prediksi. Namun, pohon-pohon di bagging
+tidak sepenuhnya independen satu sama lain karena semua prediktor asli
+dianggap di setiap split setiap pohon. Sebaliknya, pohon dari sampel
+bootstrap yang berbeda biasanya memiliki struktur yang mirip satu sama
+lain (terutama di bagian atas pohon) karena hubungan yang mendasarinya.
+
+Sebagai contoh, jika kita membuat enam pohon keputusan dengan sampel
+bootstrap data perumahan Boston yang berbeda, kita melihat bahwa puncak
+pohon semua memiliki struktur yang sangat mirip. Meskipun ada 15
+variabel prediktor untuk dipecah, keenam pohon memiliki kedua variabel
+lstat dan rm yang mendorong beberapa split pertama.
+
+Sebagai contoh, jika kita membuat enam *decision trees* dengan sampel
+bootstrap [data perumahan
+Boston](http://uc-r.github.io/\(http://lib.stat.cmu.edu/datasets/boston\))
+yang berbeda, kita melihat bahwa puncak pohon semua memiliki struktur
+yang sangat mirip. Meskipun ada 15 variabel prediktor untuk dipecah,
+keenam pohon memiliki kedua variabel `lstat` dan `rm` yang mendorong
+beberapa split pertama.
+
+![Enam decision trees berdasarkan sampel bootsrap yang
+berbeda-beda](http://uc-r.github.io/public/images/analytics/random_forests/tree-correlation-1.png)
+
+Karakteristik ini dikenal sebagai **korelasi pohon** dan mencegah
+bagging dari secara optimal mengurangi varians dari nilai-nilai
+prediktif. Untuk mengurangi varian lebih lanjut, kita perlu meminimalkan
+jumlah korelasi antar pohon-pohon tersebut. Ini bisa dicapai dengan
+menyuntikkan lebih banyak keacakan ke dalam proses penanaman pohon.
+*Random Forest* mencapai ini dalam dua cara:
+
+1.  **Bootstrap**: mirip dengan bagging, setiap pohon ditumbuhkan ke set
+    data *bootstrap resampled*, yang membuatnya berbeda dan agak
+    mendekorelasi antar pohon tersebut.
+2.  **Split-variable randomization**: setiap kali pemisahan dilakukan,
+    pencarian untuk variabel terbagi terbatas pada subset acak \(m\)
+    dari variabel \(p\). Untuk pohon regresi, nilai default tipikal
+    adalah \(m = p/3\) tetapi ini harus dianggap sebagai *parameter
+    tuning*. Ketika \(m = p\), jumlah pengacakan hanya menggunakan
+    langkah 1 dan sama dengan bagging.
+
+Algoritma dasar dari *random forest* adalah sebagai berikut:
+
+    1.  Diberikan set data training
+    2.  Pilih jumlah pohon yang akan dibangun (n_trees)
+    3.  for i = 1 to n_trees do
+    4.  | Hasilkan sampel bootstrap dari data asli
+    5.  | Tumbuhkan pohon regresi / klasifikasi ke data yang di-bootstrap
+    6.  | for each split do
+    7.  | | Pilih variabel m_try secara acak dari semua variabel p
+    8.  | | Pilih variabel / titik-split terbaik di antara m_try
+    9.  | | Membagi node menjadi dua node anak
+    10. | end
+    11. | Gunakan kriteria berhenti model pohon biasa untuk menentukan 
+        | kapan pohon selesai (tapi jangan pangkas)
+    12. end
+    13. Output ensemble of trees 
+
+Karena algoritma secara acak memilih sampel bootstrap untuk dilatih dan
+prediktor digunakan pada setiap split, korelasi pohon akan berkurang
+melebihi bagging.
+
+## OOB Error vs Test Set Error
+
+Mirip dengan bagging, manfaat alami dari proses *bootstrap resampling*
+adalah *randomforest* memiliki sampel *out-of-bag* (OOB) yang memberikan
+perkiraan kesalahan pengujian yang efisien dan masuk akal. Ini
+memberikan satu set validasi bawaan tanpa kerja ekstra , dan kita tidak
+perlu mengorbankan data *training* apa pun untuk digunakan untuk
+validasi. Ini membuat proses identifikasi jumlah pohon yang diperlukan
+untuk menstabilkan tingkat kesalahan selama proses *tuning* menjadi
+lebih efisien; Namun, seperti yang diilustrasikan di bawah ini, beberapa
+perbedaan antara kesalahan OOB dan kesalahan tes diharapkan.
+
+![Random forest OOB vs validation error (Sumber:
+<http://uc-r.github.io/>)](http://uc-r.github.io/public/images/analytics/random_forests/oob-error-compare-1.svg)
+
+Selain itu, banyak paket tidak melacak pengamatan mana yang merupakan
+bagian dari sampel OOB untuk pohon tertentu dan yang tidak. Jika kita
+membandingkan beberapa model dengan yang lain, kita ingin membuat skor
+masing-masing pada set validasi yang sama untuk membandingkan kinerja.
+Selain itu, meskipun secara teknis dimungkinkan untuk menghitung metrik
+tertentu seperti *root mean squared logarithmic error* (RMSLE) pada
+sampel OOB, itu tidak dibangun untuk semua paket. Jadi jika kita ingin
+membandingkan beberapa model atau menggunakan fungsi *loss* yang sedikit
+lebih tradisional, kita mungkin ingin tetap melakukan validasi silang.
+
+## Kelebihan dan Kekurangan
+
+**Kelbihan**
+
+  - Biasanya memiliki kinerja yang sangat bagus
+  - “*Out-of-the-box*” yang luar biasa bagus - sangat sedikit
+    penyesuaian yang diperlukan
+  - Kumpulan validasi bawaan - tidak perlu mengorbankan data untuk
+    validasi tambahan
+  - Tidak diperlukan pra-pemrosesan
+  - Bersifat *robust* dengan adanya *outlier*
+
+**Kekurangan**
+
+  - Dapat menjadi lambat pada set data besar
+  - Meskipun akurat, seringkali tidak dapat bersaing dengan algoritma
+    *boosting*
+  - Kurang mudah untuk ditafsirkan
+
+## Validasi Silang dan Parameter Tuning
+
+Pada fungsi `trainControl()` argumen yang digunakan sama dengan model
+bagging.
+
+``` r
+# spesifikasi metode validasi silang
+cv <- trainControl(
+  # possible value: "boot", "boot632", "optimism_boot", "boot_all", "cv", 
+  #                 "repeatedcv", "LOOCV", "LGOCV"
+  method = "cv", 
+  number = 10,
+  # repeats = 5,
+  allowParallel = TRUE
+)
+```
+
+Pada proses *training*, kita akan melakukan *parameter tuning*
+menggunakan metode *grid search*. Parameter yang akan dilakukan tuning
+pada model ini adalah `mtry` yang merupakan parameter *split-variable
+randomization*.
+
+``` r
+hyper_grid <- expand.grid(
+  mtry = seq(10, 30, by = 2)
+)
+```
+
+Pada proses training, `method` yang digunakan adalah `parRF` atau
+*parallel random forest*. Metode ini memerlukan sejumlah paket tambahan
+untuk memastikan proses parallel dapat berjalan, seperti: `e1071`,
+`randomForest`, `plyr`, dan `import`.
+
+``` r
+# membuat model
+system.time(
+rf_fit_cv <- train(
+  blueprint,
+  data = ames_train,
+  method = "parRF",
+  trControl = cv,
+  tuneGrid = hyper_grid,
+  metric = "RMSE"
+  )
+)
+```
+
+    ##     user   system  elapsed 
+    ## 1783.950    0.935 1790.637
+
+``` r
+rf_fit_cv
+```
+
+    ## Parallel Random Forest 
+    ## 
+    ## 2053 samples
+    ##   73 predictor
+    ## 
+    ## Recipe steps: nzv, integer, center, scale 
+    ## Resampling: Cross-Validated (10 fold) 
+    ## Summary of sample sizes: 1848, 1846, 1848, 1846, 1848, 1849, ... 
+    ## Resampling results across tuning parameters:
+    ## 
+    ##   mtry  RMSE      Rsquared   MAE     
+    ##   10    28147.88  0.8872531  17346.14
+    ##   12    28111.04  0.8862635  17364.69
+    ##   14    27993.13  0.8869738  17274.77
+    ##   16    27905.15  0.8870663  17287.31
+    ##   18    27932.21  0.8867300  17336.35
+    ##   20    27829.97  0.8874123  17296.52
+    ##   22    27797.05  0.8874234  17240.22
+    ##   24    27864.68  0.8867582  17300.03
+    ##   26    27879.09  0.8862225  17303.66
+    ##   28    27727.74  0.8874670  17215.61
+    ##   30    27742.02  0.8871588  17249.18
+    ## 
+    ## RMSE was used to select the optimal model using the smallest value.
+    ## The final value used for the model was mtry = 28.
+
+Proses *training* berlangsung selama 1780.221 detik dengan 11 model
+terbentuk. Dari seluruh model tersebut, model dengan parameter `mtry
+= 28` memiliki rata-rata **RMSE** yang paling baik. Untuk dapat
+mengakses **RMSE** model terbaik, jalankan sintaks berikut:
+
+``` r
+rf_rmse <- rf_fit_cv$results %>%
+  arrange(RMSE) %>%
+  slice(1) %>%
+  select(RMSE) %>% pull()
+
+rf_rmse
+```
+
+    ## [1] 27727.74
+
+Nilai **RMSE** model *random forest* yang dihasilkan jauh lebih baik
+dibandingkan dua model awal. Reduksi terhadap jumlah pohon yang saling
+berkorelasi telah meningkatkan performa model secara signifikan.
+
+Berikut adalah ringkasan performa masing-masing model:
+
+``` r
+# visualisasi
+ggplot(rf_fit_cv)
+```
+
+![](temp_files/figure-gfm/rf-vis-1.png)<!-- -->
+
+## Model AKhir
+
+Untuk mengekstrak model final, jalankan sintaks berikut:
+
+``` r
+rf_fit <- rf_fit_cv$finalModel
+```
+
+Untuk mengeceke performa model dalam melakukan prediksi, kita dapat
+mengecek plot residual model tersebut.
+
+``` r
+pred_train <- predict(rf_fit, baked_train)
+residual <- mutate(baked_train, residual = Sale_Price - pred_train)
+
+# resiual vs actual
+sc <- ggplot(residual, aes(x = Sale_Price, y = residual)) +
+  geom_point() 
+# residual distribution
+hs <- ggplot(residual, aes(x = residual)) +
+  geom_histogram()
+
+gridExtra::grid.arrange(sc, hs, ncol = 2)
+```
+
+![](temp_files/figure-gfm/rf-resid-vis-1.png)<!-- -->
+
+Performa prediksi model mengalami oeningkatan dibanding dua model
+sebelumnya yang ditunjukkan adanya reduksi dari pola heterkodestisitas
+pada plot yang dihasilkan.
+
+Untuk mengecek performa prediksi model pada dataset baru (data *test*),
+jalankan sintaks berikut:
+
+``` r
+# prediksi Sale_Price ames_test
+pred_test <- predict(rf_fit, baked_test)
+
+## RMSE
+RMSE(pred_test, baked_test$Sale_Price, na.rm = TRUE)
+```
+
+    ## [1] 27374.22
+
+## Interpretasi Fitur
+
+Untuk mengetahui variabel apa yang paling berpengaruh terhadap performa
+model, kita dapat menggunakan visualisasi *variabel importance plot*.
+
+``` r
+vip(rf_fit, num_features = 10)
+```
+
+![](temp_files/figure-gfm/rf-vip-1.png)<!-- -->
+
+Berdasarkan visualisasi tersebut, terdapat tiga buah variabel yang
+memiliki nilai kepentingan yang tinggi, yaitu: `Garage_Cars`,
+`Year_Built`, dan `Gr_Liv_Area`. Untuk mengetahui efek dari ketiga
+variabel tersebut terhadap kemampuan prediksi model, jalankan sintaks
+berikut:
+
+``` r
+p1 <- pdp::partial(rf_fit_cv, pred.var = "Garage_Cars") %>% autoplot()
+p2 <- pdp::partial(rf_fit_cv, pred.var = "Year_Built") %>% autoplot()
+p3 <- pdp::partial(rf_fit_cv, pred.var = "Gr_Liv_Area") %>% autoplot()
+
+
+gridExtra::grid.arrange(p1, p2, p3, 
+                        ncol=2)
+```
+
+![](temp_files/figure-gfm/rf-pdp-1.png)<!-- -->
+
+Berdasarkan output yang dihasilkan, ketiga variabel memiliki relasi
+non-linier terhadap variabel target.
+
