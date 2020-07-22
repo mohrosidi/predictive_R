@@ -3,11 +3,6 @@ Analisis Prediktif Harga Rumah Menggunakan Tree Based Algorithm
 Moh. Rosidi
 7/22/2020
 
-Analisis Prediktif Harga Rumah Menggunakan Tree Based Algorithm
-================
-Moh. Rosidi
-7/22/2020
-
 # Dataset Ames
 
 Sebuah dataset terkait data properti yang ada di Ames IA. Dataset ini
