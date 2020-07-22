@@ -9,17 +9,18 @@ output: github_document
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
-# Pengantar
-
-
-
 # Dataset Ames
 
+Sebuah dataset terkait data properti yang ada di Ames IA. Dataset ini memiliki 82 variabel dan 2930 baris. Untuk informasi lebih lanjut terkait dataset ini, kunjungin tautan berikut:
 
+* <https://ww2.amstat.org/publications/jse/v19n3/decock/DataDocumentation.txt>
+* <http://ww2.amstat.org/publications/jse/v19n3/decock.pdf>
 
 # Persiapan {.tabset}
 
 ## Library
+
+Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif menggunakan *tree based algorithm*. Paket-paket ditampilkan sebagai berikut:
 
 ```{r import-lib}
 # library pembantu
@@ -47,8 +48,36 @@ library(vip)
 library(pdp)
 ```
 
+**Paket Pembantu**
+
+1. `plyr` : paket manipulasi data yang digunakan untuk membantu proses *fitting* sejumlah model pohon.
+2.  `e1071` : paket dengan sejumlah fungsi untuk melakukan *latent class analysis, short time Fourier transform, fuzzy clustering, support vector machines, shortest path computation, bagged clustering, naive Bayes classifier*, dll. Paket ini merupakan paket pembantu dalam proses *fitting* sejumlah model pohon
+3. `foreach` : paket untuk melakukan *parallel computing*. Diperlukan untuk melakukan *fitting* model *parallel random forest*
+4. `import` : paket yang menangani *dependency* fungsi antar paket dalam proses *fitting* model *parallel random forest*
+5. `tidyverse` : kumpulan paket dalam bidang data science
+6. `rsample` : membantu proses *data splitting*
+7. `recipes`: membantu proses data pra-pemrosesan
+8. `DataExplorer` : EDA
+9. `skimr` : membuat ringkasan data
+10. `modeldata` : kumpulan dataset untuk membuat model *machine learning*
+
+**Paket untuk Membangun Model**
+
+1. `caret` : berisikan sejumlah fungsi yang dapat merampingkan proses pembuatan model regresi dan klasifikasi
+2. `rpart` : membentuk model *decision trees*
+3. `ipred` : membentuk model *bagging*
+4. `randomForest` : membentuk model *random forest*
+5. `gbm` : membentuk model *gradient boost model*
+
+**Paket Interpretasi Model**
+
+1. `rpart.plot` : visualisasi *decision trees*
+2. `vip` : visualisasi *variable importance*
+3. `pdp` : visualisasi plot ketergantungan parsial
 
 ## Import Dataset
+
+Import dataset dilakukan dengan menggunakan fungsi `data()`. Fungsi ini digunakan untuk mengambil data yang ada dalam sebuah paket.
 
 ```{r import-data}
 data("ames")
@@ -56,6 +85,15 @@ data("ames")
 
 
 # Data Splitting
+
+Proses *data splitting* dilakukan setelah data di import ke dalam sistem. Hal ini dilakukan untuk memastikan tidak adanya kebocoran data yang mempengaruhi proses pembuatan model. Data dipisah menjadi dua buah set, yaitu: *training* dan *test*. Data *training* adalah data yang akan kita gunakan untuk membentuk model. Seluruh proses sebelum uji model akan menggunakan data *training*. Proses tersebut, antara lain: EDA, *feature engineering*, dan validasi silang. Data *test* hanya digunakan saat kita akan menguji performa model dengan data baru yang belum pernah dilihat sebelumnya.
+
+Terdapat dua buah jenis sampling pada tahapan *data splitting*, yaitu:
+
+1. *random sampling* : sampling acak tanpa mempertimbangkan adanya strata dalam data
+2. *startified random sampling* : sampling dengan memperhatikan strata dalam sebuah variabel.
+
+Dalam proses pembentukan model kali ini, kita akan menggunakan metode kedua dengan tujuan untuk memperoleh distribusi yang seragam dari variabel target (`Sale_Price`).
 
 ```{r data-split}
 set.seed(123)
@@ -65,6 +103,7 @@ ames_train  <- training(split)
 ames_test   <- testing(split)
 ```
 
+Untuk mengecek distribusi dari kedua set data, kita dapat mevisualisasikan distribusi dari variabel target pada kedua set tersebut.
 
 ```{r target-vis}
 # training set
@@ -78,7 +117,19 @@ ggplot(ames_test, aes(x = Sale_Price)) +
 
 # Analisis Data Eksploratif
 
+Analsiis data eksploratif (EDA) ditujukan untuk mengenali data sebelum kita menentukan algoritma yang cocok digunakan untuk menganalisa data lebih lanjut. EDA merupakan sebuah proses iteratif yang secara garis besar menjawab beberapa pertanyaan umum, seperti:
+
+1. Bagaimana distribusi data pada masing-masing variabel?
+2. Apakah terdapat asosiasi atau hubungan antar variabel dalam data?
+
 ## Ringkasan Data
+
+Terdapat dua buah fungsi yang digunakan dalam membuat ringkasan data, antara lain:
+
+1. `glimpse()`: varian dari `str()` untuk mengecek struktur data. Fungsi ini menampilkan transpose dari tabel data dengan menambahkan informasi, seperti: jenis data dan dimensi tabel.
+2. `skim()` : fungsi dari paket `skimr` untuk membuat ringkasan data yang lebih detail dibanding `glimpse()`, seperti: statistika deskriptif masing-masing kolom, dan informasi *missing value* dari masing-masing kolom.
+3. `plot_missing()` : fungsi untuk memvisualisasikan persentase *missing value* pada masing-masing variabel atau kolom data
+
 
 ```{r glimpse}
 glimpse(ames_train)
@@ -92,8 +143,11 @@ skim(ames_train)
 plot_missing(ames_train)
 ```
 
+Berdasarkan ringkasan data yang dihasilkan, diketahui dimensi data sebesar 2053 baris dan 74 kolom. Dengan rincian masing-masing kolom, yaitu: 40 kolom dengan jenis data factor dan 34 kolom dengan jenis data numeric. Informasi lain yang diketahui adalah seluruh kolom dalam data tidak memiliki *missing value*.
 
 ## Variasi
+
+Variasi dari tiap variabel dapat divisualisasikan dengan menggunakan histogram (numerik) dan baplot (kategorikal).
 
 ```{r hist}
 plot_histogram(ames_train, ncol = 2L, nrow = 2L)
@@ -103,6 +157,8 @@ plot_histogram(ames_train, ncol = 2L, nrow = 2L)
 plot_bar(ames_train, ncol = 2L, nrow = 2L)
 ```
 
+Berdasarkan hasil visualisasi diperoleh bahwa sebagian besar variabel numerik memiliki distribusi yang tidak simetris. Sedangkan pada variabel kategorikal diketahui bahwa terdapat beberapa variabel yang memiliki variasi rendah atau mendekati nol. Untuk mengetahui variabel dengan variabilitas mendekati nol atau nol, dapat menggunakan sintaks berikut:
+
 ```{r nzv}
 nzvar <- nearZeroVar(ames_train, saveMetrics = TRUE) %>% 
   rownames_to_column() %>% 
@@ -110,10 +166,14 @@ nzvar <- nearZeroVar(ames_train, saveMetrics = TRUE) %>%
 nzvar
 ```
 
+Berikut adalah ringkasan data pada variabel yang tidak memiliki variasi yang mendekati nol.
+
 ```{r wt-nzv}
 without_nzvar <- select(ames_train, !nzvar$rowname)
 skim(without_nzvar)
 ```
+
+Berikut adalah tabulasi observasi pada masing-masing variabel yang memiliki jumlah kategori >= 10.
 
 ```{r count-nominal}
 # MS_SubClass 
@@ -126,20 +186,61 @@ count(ames_train, Exterior_1st) %>% arrange(n)
 count(ames_train, Exterior_2nd) %>% arrange(n)
 ```
 
-```{r}
-plot_bar(without_nzvar)
-```
-
-
 ## Kovarian
+
+Kovarian dapat dicek melalui visualisasi *heatmap* koefisien korelasi (numerik) atau menggunakan *boxplot* (kontinu vs kategorikal)
 
 ```{r heatmap}
 plot_correlation(ames_train, type = "continuous", 
                  cor_args = list(method = "spearman"))
 ```
 
+```{r boxplot}
+plot_boxplot(ames_train, by = "Sale_Price", ncol = 2, nrow = 1)
+```
 
 # Target and Feature Engineering
+
+*Data preprocessing* dan *engineering* mengacu pada proses penambahan, penghapusan, atau transformasi data. Waktu yang diperlukan untuk memikirkan identifikasi kebutuhan *data engineering* dapat berlangsung cukup lama dan proprsinya akan menjadi yang terbesar dibandingkan analisa lainnya. Hal ini disebabkan karena kita perlu untuk memahami data apa yang akan kita oleh atau diinputkan ke dalam model.
+
+Untuk menyederhanakan proses *feature engineerinh*, kita harus memikirkannya sebagai sebuah *blueprint* dibanding melakukan tiap tugasnya secara satu persatu. Hal ini membantu kita dalam dua hal:
+
+1. Berpikir secara berurutan
+2. Mengaplikasikannya secara tepat selama proses *resampling*
+
+## Urutan Langkah-Langkah Feature Engineering
+
+Memikirkan *feature engineering* sebagai sebuah *blueprint* memaksa kita untuk memikirkan urutan langkah-langkah *preprocessing* data. Meskipun setiap masalah mengharuskan kita untuk memikirkan efek *preprocessing* berurutan, ada beberapa saran umum yang harus kita pertimbangkan:
+
+* Jika menggunakan log atau transformasi Box-Cox, jangan memusatkan data terlebih dahulu atau melakukan operasi apa pun yang dapat membuat data menjadi tidak positif. Atau, gunakan transformasi Yeo-Johnson sehingga kita tidak perlu khawatir tentang hal ini.
+* *One-hot* atau *dummy encoding* biasanya menghasilkan data jarang (*sparse*) yang dapat digunakan oleh banyak algoritma secara efisien. Jika kita menstandarisasikan data tersebut, kita akan membuat data menjadi padat (*dense*) dan kita kehilangan efisiensi komputasi. Akibatnya, sering kali lebih disukai untuk standardisasi fitur numerik kita dan kemudian *one-hot/dummy endode*.
+* Jika kila mengelompokkan kategori (*lumping*) yang jarang terjadi  secara bersamaan, lakukan sebelum *one-hot/dummy endode*.
+* Meskipun kita dapat melakukan prosedur pengurangan dimensi pada fitur-fitur kategorikal, adalah umum untuk melakukannya terutama pada fitur numerik ketika melakukannya untuk tujuan rekayasa fitur.
+
+Sementara kebutuhan proyek kita mungkin beragam, berikut ini adalah urutan langkah-langkah potensial yang disarankan untuk sebagian besar masalah:
+
+1. Filter fitur dengan varians nol (*zero varians*) atau hampir nol (*near zero varians*).
+2. Lakukan imputasi jika diperlukan.
+3. Normalisasi untuk menyelesaikan *skewness* fitur numerik.
+4. Standardisasi fitur numerik (*centering* dan *scaling*).
+5. Lakukan reduksi dimensi (mis., PCA) pada fitur numerik.
+6. *one-hot/dummy endode* pada fitur kategorikal.
+
+## Meletakkan Seluruh Proses Secara Bersamaan
+
+Untuk mengilustrasikan bagaimana proses ini bekerja bersama menggunakan R, mari kita lakukan penilaian ulang sederhana pada set data `ames` yang kita gunakan  dan lihat apakah beberapa *feature engineering* sederhana meningkatkan kemampuan prediksi model kita. Tapi pertama-tama, kita berkenalan dengat paket `recipe`.
+
+Paket `recipe` ini memungkinkan kita untuk mengembangkan *bluprint feature engineering* secara berurutan. Gagasan di balik `recipe` mirip dengan `caret :: preProcess()` di mana kita ingin membuat *blueprint preprocessing* tetapi menerapkannya nanti dan dalam setiap resample.
+
+Ada tiga langkah utama dalam membuat dan menerapkan rekayasa fitur dengan `recipe`:
+
+1. `recipe()`: tempat kita menentukan langkah-langkah rekayasa fitur untuk membuat *blueprint*.
+2. `prep()`: memperkirakan parameter *feature engineering* berdasarkan data *training*.
+3. `bake()`: terapkan *blueprint* untuk data baru.
+
+Langkah pertama adalah di mana kita menentukan *blueprint*. Dengan proses ini, Kita memberikan formula model yang ingin kita buat (variabel target, fitur, dan data yang menjadi dasarnya) dengan fungsi `recipe()` dan kemudian kita secara bertahap menambahkan langkah-langkah rekayasa fitur dengan fungsi `step_xxx()`. 
+
+Secara umum *tree based model* tidak memerlukan banyak *data preprocessing*. Hal ini disebabkan karena model ini merupakan model non-parameterik dan tidak bergantung pada bentuk distribusi data. Tahapan *preprocessing* dimasudkan untuk menfilter fitur dengan varians nol (*zero varians*) atau hampir nol (*near zero varians*) dan standardisasi variabel untuk mempercepat proses komputasi model. Berikut adalah implementasi tahapan tersebut:
 
 ```{r preprocess}
 blueprint <- recipe(Sale_Price ~., data = ames_train) %>%
@@ -153,10 +254,14 @@ blueprint <- recipe(Sale_Price ~., data = ames_train) %>%
 blueprint
 ```
 
+Selanjutnya, *blueprint* yang telah dibuat dilakukan *training* pada data *training*. Perlu diperhatikan, kita tidak melakukan proses *training* pada data *test* untuk mencegah *data leakage*.
+
 ```{r prep}
 prepare <- prep(blueprint, training = ames_train)
 prepare
 ```
+
+Langkah terakhir adalah mengaplikasikan *blueprint* pada data *training* dan *test* menggunakan fungsi `bake()`.
 
 ```{r baked}
 baked_train <- bake(prepare, new_data = ames_train)
@@ -168,187 +273,3 @@ baked_train
 skim(baked_train)
 ```
 
-
-# Random Forest
-
-Bagging (agregasi bootstrap) adalah teknik yang dapat mengubah model pohon tunggal dengan varian tinggi dan kemampuan prediksi yang buruk menjadi fungsi prediksi yang cukup akurat. Sayangnya, bagging biasanya kekurangan, yiatu: adanya korelasi pada tiap pohon yang mengurangi kinerja keseluruhan model. *Random forest* adalah modifikasi bagging yang membangun koleksi besar pohon yang tidak berkorelasi dan telah menjadi algoritma pembelajaran “out-of-the-box” yang sangat populer yang dengan kinerja prediksi yang baik. 
-
-*Random forest* dibangun di atas prinsip-prinsip dasar yang sama seperti *decision tress* dan bagging. Bagging memperkenalkan komponen acak ke dalam proses pembangunan pohon yang mengurangi varian prediksi pohon tunggal dan meningkatkan kinerja prediksi. Namun, pohon-pohon di bagging tidak sepenuhnya independen satu sama lain karena semua prediktor asli dianggap di setiap split setiap pohon. Sebaliknya, pohon dari sampel bootstrap yang berbeda biasanya memiliki struktur yang mirip satu sama lain (terutama di bagian atas pohon) karena hubungan yang mendasarinya.
-
-Sebagai contoh, jika kita membuat enam pohon keputusan dengan sampel bootstrap data perumahan Boston yang berbeda, kita melihat bahwa puncak pohon semua memiliki struktur yang sangat mirip. Meskipun ada 15 variabel prediktor untuk dipecah, keenam pohon memiliki kedua variabel lstat dan rm yang mendorong beberapa split pertama.
-
-Sebagai contoh, jika kita membuat enam *decision trees* dengan sampel bootstrap [data perumahan Boston](http://uc-r.github.io/(http://lib.stat.cmu.edu/datasets/boston)) yang berbeda, kita melihat bahwa puncak pohon semua memiliki struktur yang sangat mirip. Meskipun ada 15 variabel prediktor untuk dipecah, keenam pohon memiliki kedua variabel `lstat` dan `rm` yang mendorong beberapa split pertama.
-
-![Enam decision trees berdasarkan sampel bootsrap yang berbeda-beda](http://uc-r.github.io/public/images/analytics/random_forests/tree-correlation-1.png)
-
-Karakteristik ini dikenal sebagai **korelasi pohon** dan mencegah bagging dari secara optimal mengurangi varians dari nilai-nilai prediktif. Untuk mengurangi varian lebih lanjut, kita perlu meminimalkan jumlah korelasi antar pohon-pohon tersebut. Ini bisa dicapai dengan menyuntikkan lebih banyak keacakan ke dalam proses penanaman pohon. *Random Forest* mencapai ini dalam dua cara:
-
-1. **Bootstrap**: mirip dengan bagging, setiap pohon ditumbuhkan ke set data *bootstrap resampled*, yang membuatnya berbeda dan agak mendekorelasi antar pohon tersebut.
-2. **Split-variable randomization**: setiap kali pemisahan dilakukan, pencarian untuk variabel terbagi terbatas pada subset acak $m$ dari variabel $p$. Untuk pohon regresi, nilai default tipikal adalah $m = p/3$ tetapi ini harus dianggap sebagai *parameter tuning*. Ketika $m = p$, jumlah pengacakan hanya menggunakan langkah 1 dan sama dengan bagging.
-
-Algoritma dasar dari *random forest* adalah sebagai berikut:
-
-```
-1.  Diberikan set data training
-2.  Pilih jumlah pohon yang akan dibangun (n_trees)
-3.  for i = 1 to n_trees do
-4.  | Hasilkan sampel bootstrap dari data asli
-5.  | Tumbuhkan pohon regresi / klasifikasi ke data yang di-bootstrap
-6.  | for each split do
-7.  | | Pilih variabel m_try secara acak dari semua variabel p
-8.  | | Pilih variabel / titik-split terbaik di antara m_try
-9.  | | Membagi node menjadi dua node anak
-10. | end
-11. | Gunakan kriteria berhenti model pohon biasa untuk menentukan 
-    | kapan pohon selesai (tapi jangan pangkas)
-12. end
-13. Output ensemble of trees 
-```
-
-Karena algoritma secara acak memilih sampel bootstrap untuk dilatih dan prediktor digunakan pada setiap split, korelasi pohon akan berkurang melebihi bagging.
-
-## OOB Error vs Test Set Error
-
-Mirip dengan bagging, manfaat alami dari proses *bootstrap resampling* adalah *randomforest* memiliki sampel *out-of-bag* (OOB) yang memberikan perkiraan kesalahan pengujian yang efisien dan masuk akal. Ini memberikan satu set validasi bawaan tanpa kerja ekstra , dan kita tidak perlu mengorbankan data *training* apa pun untuk digunakan untuk validasi. Ini membuat proses identifikasi jumlah pohon yang diperlukan untuk menstabilkan tingkat kesalahan selama proses *tuning* menjadi lebih efisien; Namun, seperti yang diilustrasikan di bawah ini, beberapa perbedaan antara kesalahan OOB dan kesalahan tes diharapkan.
-
-![Random forest OOB vs validation error (Sumber: http://uc-r.github.io/)](http://uc-r.github.io/public/images/analytics/random_forests/oob-error-compare-1.svg)
-
-Selain itu, banyak paket tidak melacak pengamatan mana yang merupakan bagian dari sampel OOB untuk pohon tertentu dan yang tidak. Jika kita membandingkan beberapa model dengan yang lain, kita ingin membuat skor masing-masing pada set validasi yang sama untuk membandingkan kinerja. Selain itu, meskipun secara teknis dimungkinkan untuk menghitung metrik tertentu seperti *root mean squared logarithmic error* (RMSLE) pada sampel OOB, itu tidak dibangun untuk semua paket. Jadi jika kita ingin membandingkan beberapa model atau menggunakan fungsi *loss* yang sedikit lebih tradisional, kita mungkin ingin tetap melakukan validasi silang.
-
-## Kelebihan dan Kekurangan
-
-**Kelbihan**
-
-* Biasanya memiliki kinerja yang sangat bagus
-* “*Out-of-the-box*” yang luar biasa bagus - sangat sedikit penyesuaian yang diperlukan
-* Kumpulan validasi bawaan - tidak perlu mengorbankan data untuk validasi tambahan
-* Tidak diperlukan pra-pemrosesan
-* Bersifat *robust* dengan adanya *outlier*
-
-**Kekurangan**
-
-* Dapat menjadi lambat pada set data besar
-* Meskipun akurat, seringkali tidak dapat bersaing dengan algoritma *boosting*
-* Kurang mudah untuk ditafsirkan
-
-
-## Validasi Silang dan Parameter Tuning
-
-Pada fungsi `trainControl()` argumen yang digunakan sama dengan model bagging. 
-
-```{r rf-cv}
-# spesifikasi metode validasi silang
-cv <- trainControl(
-  # possible value: "boot", "boot632", "optimism_boot", "boot_all", "cv", 
-  #                 "repeatedcv", "LOOCV", "LGOCV"
-  method = "cv", 
-  number = 10,
-  # repeats = 5,
-  allowParallel = TRUE
-)
-```
-
-Pada proses *training*, kita akan melakukan *parameter tuning* menggunakan metode *grid search*. Parameter yang akan dilakukan tuning pada model ini adalah `mtry` yang merupakan parameter *split-variable randomization*.
-
-```{r rf-grid}
-hyper_grid <- expand.grid(
-  mtry = seq(10, 30, by = 2)
-)
-```
-
-Pada proses training, `method` yang digunakan adalah `parRF` atau *parallel random forest*. Metode ini memerlukan sejumlah paket tambahan untuk memastikan proses parallel dapat berjalan, seperti: `e1071`, `randomForest`, `plyr`, dan `import`.
-
-```{r rf-fit}
-# membuat model
-system.time(
-rf_fit_cv <- train(
-  blueprint,
-  data = ames_train,
-  method = "parRF",
-  trControl = cv,
-  tuneGrid = hyper_grid,
-  metric = "RMSE"
-  )
-)
-
-rf_fit_cv
-```
-
-Proses *training* berlangsung selama 1780.221 detik dengan 11 model terbentuk. Dari seluruh model tersebut, model dengan parameter `mtry = 28` memiliki rata-rata **RMSE** yang paling baik. Untuk dapat mengakses **RMSE** model terbaik, jalankan sintaks berikut:
-
-```{r rf-rmse}
-rf_rmse <- rf_fit_cv$results %>%
-  arrange(RMSE) %>%
-  slice(1) %>%
-  select(RMSE) %>% pull()
-
-rf_rmse
-```
-
-Nilai **RMSE** model *random forest* yang dihasilkan jauh lebih baik dibandingkan dua model awal. Reduksi terhadap jumlah pohon yang saling berkorelasi telah meningkatkan performa model secara signifikan.
-
-Berikut adalah ringkasan performa masing-masing model:
-
-```{r rf-vis, chace = TRUE}
-# visualisasi
-ggplot(rf_fit_cv)
-```
-
-## Model AKhir
-
-Untuk mengekstrak model final, jalankan sintaks berikut:
-
-```{r rf-final}
-rf_fit <- rf_fit_cv$finalModel
-```
-
-Untuk mengeceke performa model dalam melakukan prediksi, kita dapat mengecek plot residual model tersebut.
-
-```{r rf-resid-vis}
-pred_train <- predict(rf_fit, baked_train)
-residual <- mutate(baked_train, residual = Sale_Price - pred_train)
-
-# resiual vs actual
-sc <- ggplot(residual, aes(x = Sale_Price, y = residual)) +
-  geom_point() 
-# residual distribution
-hs <- ggplot(residual, aes(x = residual)) +
-  geom_histogram()
-
-gridExtra::grid.arrange(sc, hs, ncol = 2)
-```
-
-Performa prediksi model mengalami oeningkatan dibanding dua model sebelumnya yang ditunjukkan adanya reduksi dari pola heterkodestisitas pada plot yang dihasilkan.
-
-Untuk mengecek performa prediksi model pada dataset baru (data *test*), jalankan sintaks berikut:
-
-```{r rf-rmse-test}
-# prediksi Sale_Price ames_test
-pred_test <- predict(rf_fit, baked_test)
-
-## RMSE
-RMSE(pred_test, baked_test$Sale_Price, na.rm = TRUE)
-```
-
-## Interpretasi Fitur
-
-Untuk mengetahui variabel apa yang paling berpengaruh terhadap performa model, kita dapat menggunakan visualisasi *variabel importance plot*.
-
-```{r rf-vip}
-vip(rf_fit, num_features = 10)
-```
-
-Berdasarkan visualisasi tersebut, terdapat tiga buah variabel yang memiliki nilai kepentingan yang tinggi, yaitu: `Garage_Cars`, `Year_Built`, dan `Gr_Liv_Area`. Untuk mengetahui efek dari ketiga variabel tersebut terhadap kemampuan prediksi model, jalankan sintaks berikut:
-
-```{r rf-pdp}
-p1 <- pdp::partial(rf_fit_cv, pred.var = "Garage_Cars") %>% autoplot()
-p2 <- pdp::partial(rf_fit_cv, pred.var = "Year_Built") %>% autoplot()
-p3 <- pdp::partial(rf_fit_cv, pred.var = "Gr_Liv_Area") %>% autoplot()
-
-
-gridExtra::grid.arrange(p1, p2, p3, 
-                        ncol=2)
-```
-
-
-Berdasarkan output yang dihasilkan, ketiga variabel memiliki relasi non-linier terhadap variabel target.

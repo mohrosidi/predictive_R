@@ -3,13 +3,27 @@ Analisis Prediktif Harga Rumah Menggunakan Tree Based Algorithm
 Moh. Rosidi
 7/22/2020
 
-# Pengantar
+Analisis Prediktif Harga Rumah Menggunakan Tree Based Algorithm
+================
+Moh. Rosidi
+7/22/2020
 
 # Dataset Ames
+
+Sebuah dataset terkait data properti yang ada di Ames IA. Dataset ini
+memiliki 82 variabel dan 2930 baris. Untuk informasi lebih lanjut
+terkait dataset ini, kunjungin tautan berikut:
+
+  - <https://ww2.amstat.org/publications/jse/v19n3/decock/DataDocumentation.txt>
+  - <http://ww2.amstat.org/publications/jse/v19n3/decock.pdf>
 
 # Persiapan
 
 ## Library
+
+Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif
+menggunakan *tree based algorithm*. Paket-paket ditampilkan sebagai
+berikut:
 
 ``` r
 # library pembantu
@@ -37,13 +51,73 @@ library(vip)
 library(pdp)
 ```
 
+**Paket Pembantu**
+
+1.  `plyr` : paket manipulasi data yang digunakan untuk membantu proses
+    *fitting* sejumlah model pohon.
+2.  `e1071` : paket dengan sejumlah fungsi untuk melakukan *latent class
+    analysis, short time Fourier transform, fuzzy clustering, support
+    vector machines, shortest path computation, bagged clustering, naive
+    Bayes classifier*, dll. Paket ini merupakan paket pembantu dalam
+    proses *fitting* sejumlah model pohon
+3.  `foreach` : paket untuk melakukan *parallel computing*. Diperlukan
+    untuk melakukan *fitting* model *parallel random forest*
+4.  `import` : paket yang menangani *dependency* fungsi antar paket
+    dalam proses *fitting* model *parallel random forest*
+5.  `tidyverse` : kumpulan paket dalam bidang data science
+6.  `rsample` : membantu proses *data splitting*
+7.  `recipes`: membantu proses data pra-pemrosesan
+8.  `DataExplorer` : EDA
+9.  `skimr` : membuat ringkasan data
+10. `modeldata` : kumpulan dataset untuk membuat model *machine
+    learning*
+
+**Paket untuk Membangun Model**
+
+1.  `caret` : berisikan sejumlah fungsi yang dapat merampingkan proses
+    pembuatan model regresi dan klasifikasi
+2.  `rpart` : membentuk model *decision trees*
+3.  `ipred` : membentuk model *bagging*
+4.  `randomForest` : membentuk model *random forest*
+5.  `gbm` : membentuk model *gradient boost model*
+
+**Paket Interpretasi Model**
+
+1.  `rpart.plot` : visualisasi *decision trees*
+2.  `vip` : visualisasi *variable importance*
+3.  `pdp` : visualisasi plot ketergantungan parsial
+
 ## Import Dataset
+
+Import dataset dilakukan dengan menggunakan fungsi `data()`. Fungsi ini
+digunakan untuk mengambil data yang ada dalam sebuah paket.
 
 ``` r
 data("ames")
 ```
 
 # Data Splitting
+
+Proses *data splitting* dilakukan setelah data di import ke dalam
+sistem. Hal ini dilakukan untuk memastikan tidak adanya kebocoran data
+yang mempengaruhi proses pembuatan model. Data dipisah menjadi dua buah
+set, yaitu: *training* dan *test*. Data *training* adalah data yang akan
+kita gunakan untuk membentuk model. Seluruh proses sebelum uji model
+akan menggunakan data *training*. Proses tersebut, antara lain: EDA,
+*feature engineering*, dan validasi silang. Data *test* hanya digunakan
+saat kita akan menguji performa model dengan data baru yang belum pernah
+dilihat sebelumnya.
+
+Terdapat dua buah jenis sampling pada tahapan *data splitting*, yaitu:
+
+1.  *random sampling* : sampling acak tanpa mempertimbangkan adanya
+    strata dalam data
+2.  *startified random sampling* : sampling dengan memperhatikan strata
+    dalam sebuah variabel.
+
+Dalam proses pembentukan model kali ini, kita akan menggunakan metode
+kedua dengan tujuan untuk memperoleh distribusi yang seragam dari
+variabel target (`Sale_Price`).
 
 ``` r
 set.seed(123)
@@ -52,6 +126,10 @@ split  <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
 ames_train  <- training(split)
 ames_test   <- testing(split)
 ```
+
+Untuk mengecek distribusi dari kedua set data, kita dapat
+mevisualisasikan distribusi dari variabel target pada kedua set
+tersebut.
 
 ``` r
 # training set
@@ -71,7 +149,30 @@ ggplot(ames_test, aes(x = Sale_Price)) +
 
 # Analisis Data Eksploratif
 
+Analsiis data eksploratif (EDA) ditujukan untuk mengenali data sebelum
+kita menentukan algoritma yang cocok digunakan untuk menganalisa data
+lebih lanjut. EDA merupakan sebuah proses iteratif yang secara garis
+besar menjawab beberapa pertanyaan umum, seperti:
+
+1.  Bagaimana distribusi data pada masing-masing variabel?
+2.  Apakah terdapat asosiasi atau hubungan antar variabel dalam data?
+
 ## Ringkasan Data
+
+Terdapat dua buah fungsi yang digunakan dalam membuat ringkasan data,
+antara lain:
+
+1.  `glimpse()`: varian dari `str()` untuk mengecek struktur data.
+    Fungsi ini menampilkan transpose dari tabel data dengan menambahkan
+    informasi, seperti: jenis data dan dimensi tabel.
+2.  `skim()` : fungsi dari paket `skimr` untuk membuat ringkasan data
+    yang lebih detail dibanding `glimpse()`, seperti: statistika
+    deskriptif masing-masing kolom, dan informasi *missing value* dari
+    masing-masing kolom.
+3.  `plot_missing()` : fungsi untuk memvisualisasikan persentase
+    *missing value* pada masing-masing variabel atau kolom data
+
+<!-- end list -->
 
 ``` r
 glimpse(ames_train)
@@ -262,7 +363,16 @@ plot_missing(ames_train)
 
 ![](temp_files/figure-gfm/missing-vis-1.png)<!-- -->
 
+Berdasarkan ringkasan data yang dihasilkan, diketahui dimensi data
+sebesar 2053 baris dan 74 kolom. Dengan rincian masing-masing kolom,
+yaitu: 40 kolom dengan jenis data factor dan 34 kolom dengan jenis data
+numeric. Informasi lain yang diketahui adalah seluruh kolom dalam data
+tidak memiliki *missing value*.
+
 ## Variasi
+
+Variasi dari tiap variabel dapat divisualisasikan dengan menggunakan
+histogram (numerik) dan baplot (kategorikal).
 
 ``` r
 plot_histogram(ames_train, ncol = 2L, nrow = 2L)
@@ -275,6 +385,12 @@ plot_bar(ames_train, ncol = 2L, nrow = 2L)
 ```
 
 ![](temp_files/figure-gfm/bar-1.png)<!-- -->![](temp_files/figure-gfm/bar-2.png)<!-- -->![](temp_files/figure-gfm/bar-3.png)<!-- -->![](temp_files/figure-gfm/bar-4.png)<!-- -->![](temp_files/figure-gfm/bar-5.png)<!-- -->![](temp_files/figure-gfm/bar-6.png)<!-- -->![](temp_files/figure-gfm/bar-7.png)<!-- -->![](temp_files/figure-gfm/bar-8.png)<!-- -->![](temp_files/figure-gfm/bar-9.png)<!-- -->![](temp_files/figure-gfm/bar-10.png)<!-- -->
+
+Berdasarkan hasil visualisasi diperoleh bahwa sebagian besar variabel
+numerik memiliki distribusi yang tidak simetris. Sedangkan pada variabel
+kategorikal diketahui bahwa terdapat beberapa variabel yang memiliki
+variasi rendah atau mendekati nol. Untuk mengetahui variabel dengan
+variabilitas mendekati nol atau nol, dapat menggunakan sintaks berikut:
 
 ``` r
 nzvar <- nearZeroVar(ames_train, saveMetrics = TRUE) %>% 
@@ -303,6 +419,9 @@ nzvar
     ## 17            Pool_QC  681.66667    0.24354603   FALSE TRUE
     ## 18       Misc_Feature   30.49231    0.19483682   FALSE TRUE
     ## 19           Misc_Val  165.33333    1.41256698   FALSE TRUE
+
+Berikut adalah ringkasan data pada variabel yang tidak memiliki variasi
+yang mendekati nol.
 
 ``` r
 without_nzvar <- select(ames_train, !nzvar$rowname)
@@ -387,6 +506,9 @@ Data summary
 | Sale\_Price      |          0 |              1 | 180996.28 | 80258.90 | 13100.00 | 129500.00 | 160000.00 | 213500.00 | 755000.00 | ▇▇▁▁▁ |
 | Longitude        |          0 |              1 |   \-93.64 |     0.03 |  \-93.69 |   \-93.66 |   \-93.64 |   \-93.62 |   \-93.58 | ▅▅▇▆▁ |
 | Latitude         |          0 |              1 |     42.03 |     0.02 |    41.99 |     42.02 |     42.03 |     42.05 |     42.06 | ▂▂▇▇▇ |
+
+Berikut adalah tabulasi observasi pada masing-masing variabel yang
+memiliki jumlah kategori \>= 10.
 
 ``` r
 # MS_SubClass 
@@ -481,13 +603,10 @@ count(ames_train, Exterior_2nd) %>% arrange(n)
     ## 15 MetalSd        321
     ## 16 VinylSd        710
 
-``` r
-plot_bar(without_nzvar)
-```
-
-![](temp_files/figure-gfm/unnamed-chunk-1-1.png)<!-- -->![](temp_files/figure-gfm/unnamed-chunk-1-2.png)<!-- -->![](temp_files/figure-gfm/unnamed-chunk-1-3.png)<!-- -->
-
 ## Kovarian
+
+Kovarian dapat dicek melalui visualisasi *heatmap* koefisien korelasi
+(numerik) atau menggunakan *boxplot* (kontinu vs kategorikal)
 
 ``` r
 plot_correlation(ames_train, type = "continuous", 
@@ -496,7 +615,98 @@ plot_correlation(ames_train, type = "continuous",
 
 ![](temp_files/figure-gfm/heatmap-1.png)<!-- -->
 
+``` r
+plot_boxplot(ames_train, by = "Sale_Price", ncol = 2, nrow = 1)
+```
+
+![](temp_files/figure-gfm/boxplot-1.png)<!-- -->![](temp_files/figure-gfm/boxplot-2.png)<!-- -->![](temp_files/figure-gfm/boxplot-3.png)<!-- -->![](temp_files/figure-gfm/boxplot-4.png)<!-- -->![](temp_files/figure-gfm/boxplot-5.png)<!-- -->![](temp_files/figure-gfm/boxplot-6.png)<!-- -->![](temp_files/figure-gfm/boxplot-7.png)<!-- -->![](temp_files/figure-gfm/boxplot-8.png)<!-- -->![](temp_files/figure-gfm/boxplot-9.png)<!-- -->![](temp_files/figure-gfm/boxplot-10.png)<!-- -->![](temp_files/figure-gfm/boxplot-11.png)<!-- -->![](temp_files/figure-gfm/boxplot-12.png)<!-- -->![](temp_files/figure-gfm/boxplot-13.png)<!-- -->![](temp_files/figure-gfm/boxplot-14.png)<!-- -->![](temp_files/figure-gfm/boxplot-15.png)<!-- -->![](temp_files/figure-gfm/boxplot-16.png)<!-- -->![](temp_files/figure-gfm/boxplot-17.png)<!-- -->
+
 # Target and Feature Engineering
+
+*Data preprocessing* dan *engineering* mengacu pada proses penambahan,
+penghapusan, atau transformasi data. Waktu yang diperlukan untuk
+memikirkan identifikasi kebutuhan *data engineering* dapat berlangsung
+cukup lama dan proprsinya akan menjadi yang terbesar dibandingkan
+analisa lainnya. Hal ini disebabkan karena kita perlu untuk memahami
+data apa yang akan kita oleh atau diinputkan ke dalam model.
+
+Untuk menyederhanakan proses *feature engineerinh*, kita harus
+memikirkannya sebagai sebuah *blueprint* dibanding melakukan tiap
+tugasnya secara satu persatu. Hal ini membantu kita dalam dua hal:
+
+1.  Berpikir secara berurutan
+2.  Mengaplikasikannya secara tepat selama proses *resampling*
+
+## Urutan Langkah-Langkah Feature Engineering
+
+Memikirkan *feature engineering* sebagai sebuah *blueprint* memaksa kita
+untuk memikirkan urutan langkah-langkah *preprocessing* data. Meskipun
+setiap masalah mengharuskan kita untuk memikirkan efek *preprocessing*
+berurutan, ada beberapa saran umum yang harus kita pertimbangkan:
+
+  - Jika menggunakan log atau transformasi Box-Cox, jangan memusatkan
+    data terlebih dahulu atau melakukan operasi apa pun yang dapat
+    membuat data menjadi tidak positif. Atau, gunakan transformasi
+    Yeo-Johnson sehingga kita tidak perlu khawatir tentang hal ini.
+  - *One-hot* atau *dummy encoding* biasanya menghasilkan data jarang
+    (*sparse*) yang dapat digunakan oleh banyak algoritma secara
+    efisien. Jika kita menstandarisasikan data tersebut, kita akan
+    membuat data menjadi padat (*dense*) dan kita kehilangan efisiensi
+    komputasi. Akibatnya, sering kali lebih disukai untuk standardisasi
+    fitur numerik kita dan kemudian *one-hot/dummy endode*.
+  - Jika kila mengelompokkan kategori (*lumping*) yang jarang terjadi
+    secara bersamaan, lakukan sebelum *one-hot/dummy endode*.
+  - Meskipun kita dapat melakukan prosedur pengurangan dimensi pada
+    fitur-fitur kategorikal, adalah umum untuk melakukannya terutama
+    pada fitur numerik ketika melakukannya untuk tujuan rekayasa fitur.
+
+Sementara kebutuhan proyek kita mungkin beragam, berikut ini adalah
+urutan langkah-langkah potensial yang disarankan untuk sebagian besar
+masalah:
+
+1.  Filter fitur dengan varians nol (*zero varians*) atau hampir nol
+    (*near zero varians*).
+2.  Lakukan imputasi jika diperlukan.
+3.  Normalisasi untuk menyelesaikan *skewness* fitur numerik.
+4.  Standardisasi fitur numerik (*centering* dan *scaling*).
+5.  Lakukan reduksi dimensi (mis., PCA) pada fitur numerik.
+6.  *one-hot/dummy endode* pada fitur kategorikal.
+
+## Meletakkan Seluruh Proses Secara Bersamaan
+
+Untuk mengilustrasikan bagaimana proses ini bekerja bersama menggunakan
+R, mari kita lakukan penilaian ulang sederhana pada set data `ames` yang
+kita gunakan dan lihat apakah beberapa *feature engineering* sederhana
+meningkatkan kemampuan prediksi model kita. Tapi pertama-tama, kita
+berkenalan dengat paket `recipe`.
+
+Paket `recipe` ini memungkinkan kita untuk mengembangkan *bluprint
+feature engineering* secara berurutan. Gagasan di balik `recipe` mirip
+dengan `caret :: preProcess()` di mana kita ingin membuat *blueprint
+preprocessing* tetapi menerapkannya nanti dan dalam setiap resample.
+
+Ada tiga langkah utama dalam membuat dan menerapkan rekayasa fitur
+dengan `recipe`:
+
+1.  `recipe()`: tempat kita menentukan langkah-langkah rekayasa fitur
+    untuk membuat *blueprint*.
+2.  `prep()`: memperkirakan parameter *feature engineering* berdasarkan
+    data *training*.
+3.  `bake()`: terapkan *blueprint* untuk data baru.
+
+Langkah pertama adalah di mana kita menentukan *blueprint*. Dengan
+proses ini, Kita memberikan formula model yang ingin kita buat (variabel
+target, fitur, dan data yang menjadi dasarnya) dengan fungsi `recipe()`
+dan kemudian kita secara bertahap menambahkan langkah-langkah rekayasa
+fitur dengan fungsi `step_xxx()`.
+
+Secara umum *tree based model* tidak memerlukan banyak *data
+preprocessing*. Hal ini disebabkan karena model ini merupakan model
+non-parameterik dan tidak bergantung pada bentuk distribusi data.
+Tahapan *preprocessing* dimasudkan untuk menfilter fitur dengan varians
+nol (*zero varians*) atau hampir nol (*near zero varians*) dan
+standardisasi variabel untuk mempercepat proses komputasi model. Berikut
+adalah implementasi tahapan tersebut:
 
 ``` r
 blueprint <- recipe(Sale_Price ~., data = ames_train) %>%
@@ -525,6 +735,10 @@ blueprint
     ## Centering for all_numeric(), -all_outcomes()
     ## Scaling for all_numeric(), -all_outcomes()
 
+Selanjutnya, *blueprint* yang telah dibuat dilakukan *training* pada
+data *training*. Perlu diperhatikan, kita tidak melakukan proses
+*training* pada data *test* untuk mencegah *data leakage*.
+
 ``` r
 prepare <- prep(blueprint, training = ames_train)
 prepare
@@ -546,6 +760,9 @@ prepare
     ## Integer encoding for MS_SubClass, Neighborhood, Condition_1, ... [trained]
     ## Centering for MS_SubClass, Lot_Frontage, ... [trained]
     ## Scaling for MS_SubClass, Lot_Frontage, ... [trained]
+
+Langkah terakhir adalah mengaplikasikan *blueprint* pada data *training*
+dan *test* menggunakan fungsi `bake()`.
 
 ``` r
 baked_train <- bake(prepare, new_data = ames_train)
@@ -672,6 +889,7 @@ Data summary
 | Longitude            |          0 |              1 |      0.0 |     1.0 |   \-1.96 |    \-0.68 |   4.0e-02 |      0.80 |      2.57 | ▅▅▇▆▁ |
 | Latitude             |          0 |              1 |      0.0 |     1.0 |   \-2.61 |    \-0.67 |   1.0e-02 |      0.83 |      1.58 | ▂▂▇▇▇ |
 | Sale\_Price          |          0 |              1 | 180996.3 | 80258.9 | 13100.00 | 129500.00 |   1.6e+05 | 213500.00 | 755000.00 | ▇▇▁▁▁ |
+
 
 # Decision Tree Model
 
@@ -1516,4 +1734,356 @@ gridExtra::grid.arrange(p1, p2, p3,
 
 Berdasarkan output yang dihasilkan, ketiga variabel memiliki relasi
 non-linier terhadap variabel target.
+
+# Boosting
+
+*Gradient boosted machines* (GBMs) adalah algoritma *machine learning*
+yang sangat populer yang telah terbukti berhasil di banyak domain dan
+merupakan salah satu metode utama untuk memenangkan kompetisi Kaggle.
+Sementara *random forest* membangun ansambel pohon independen yang
+dalam, GBM membangun ansambel pohon berturut-turut yang dangkal dan
+lemah dengan setiap pohon belajar dan meningkatkan pada sebelumnya.
+Ketika digabungkan, banyak pohon berturut-turut yang lemah ini
+menghasilkan “komite” yang kuat yang seringkali sulit dikalahkan dengan
+algoritma lain.
+
+Beberapa model *supervised machine learning* tersusun atas model
+prediksi tunggal (yaitu [regresi
+linier](http://uc-r.github.io/linear_regression), [penalized
+model](http://uc-r.github.io/regularized_regression), [naive
+bayes](http://uc-r.github.io/naive_bayes), [support vector
+machines](http://uc-r.github.io/svm)). Atau, pendekatan lain seperti
+[bagging](http://uc-r.github.io/regression_trees) dan [random
+forest](http://uc-r.github.io/random_forests) dibangun di atas gagasan
+membangun ansambel model di mana masing-masing model memprediksi hasil
+dan kemudian hasil prediksi dirata-rata (regresi) atau menggunakan
+sistem voting terbanyak (klasifikasi). Keluarga metode *boosting*
+didasarkan pada strategi konstruktif yang berbeda dari pembentukan
+ansambel.
+
+Gagasan utama *boosting* adalah menambahkan model-model baru ke ansambel
+secara berurutan. Pada setiap iterasi tertentu, model pembelajaran
+dasar-lemah yang baru dilatih sehubungan dengan kesalahan seluruh
+rangkaian yang dipelajari sejauh ini.
+
+![Pendekatan
+boosting](http://uc-r.github.io/public/images/analytics/gbm/boosted-trees-process.png)
+
+Mari kita bahas masing-masing komponen kalimat sebelumnya dengan lebih
+detail karena mereka penting untuk diketahui.
+
+**Base-learning models**: *Boosting* adalah kerangka kerja yang secara
+iteratif meningkatkan model pembelajaran yang lemah. Banyak aplikasi
+*gradient boosting* memungkinkan kita untuk “memasukkan” berbagai kelas
+*weak learner* sesuai keinginan kita Namun dalam praktiknya, algoritma
+yang ditingkatkan hampir selalu menggunakan *decision trees* sebagai
+*base learner*-nya. Konsekuensinya, tutorial ini akan membahas
+*boosting* dalam konteks pohon regresi atau klasifikasi.
+
+**Training weak models**: *Weak model* adalah model yang tingkat
+kesalahannya hanya sedikit lebih baik daripada menebak secara acak.
+Gagasan di balik *boosting* adalah bahwa setiap model berurutan
+membangun model lemah sederhana untuk sedikit memperbaiki kesalahan yang
+tersisa. Sehubungan dengan *decision trees*, pohon dangkal mewakili
+*weak learner*. Umumnya, pohon dengan hanya 1-6 pohon digunakan.
+Menggabungkan banyak *weak model* (versus yang kuat) memiliki beberapa
+manfaat:
+
+  - *Speed*: Membangun model lemah adalah murah secara proses komputasi
+  - *Accuracy improvement*: *Weak model* memungkinkan algoritma untuk
+    belajar secara lambat; melakukan penyesuaian kecil di area baru yang
+    kinerjanya tidak baik. Secara umum, pendekatan statistik *weak
+    learner* cenderung berkinerja baik.
+  - *Avoids overfitting*: Karena hanya membuat perbaikan bertahap kecil
+    dengan masing-masing model dalam ansambel, ini memungkinkan kita
+    untuk menghentikan proses pembelajaran segera setelah overfitting
+    telah terdeteksi (biasanya dengan menggunakan validasi silang).
+
+**Sequential training with respect to errors**: *Boosted trees*
+ditumbuhkan secara berurutan; setiap pohon ditumbuhkan menggunakan
+informasi dari pohon yang sebelumnya ditumbuhkan. Algoritma dasar untuk
+*boosted model* dapat digeneralisasi ke yang berikut ini di mana \(x\)
+mewakili fitur data dan variabel \(y\) mewakili respons:
+
+1.  Buat *decision trees* pada data: \(F_1\left(x\right)=y\)
+2.  Buat *decision trees* selanjutnya menggunakan data residual dari
+    *decision trees* sebelumnya:
+    \(h_1\left(x\right)=y-F_1\left(x\right)\).
+3.  Tambahkan pohon baru tersebut ke dalam algoritma:
+    \(F_2\left(x\right)= F_1\left(x\right)+h_1\left(x\right)\)
+4.  Buat *decision trees* baru pada residu \(F_2\):
+    \(h_2\left(x\right)=y - F_2\left(x\right)\)
+5.  Tambahkan *decision trees* tersebut ke dalam algoritma:
+    \(F_3\left(x\right)=F_2\left(x\right)+h_2\left(x\right)\)
+6.  Lanjutkan proses tersebut hingga sebuah mekanisme (biasanya hasil
+    validasi silang) menyatakan proses tersebut harus berhenti.
+
+## Gradient Descent
+
+Banyak algoritma, termasuk pohon keputusan, fokus pada meminimalkan
+residu dan oleh karena itu, menekankan fungsi *loss* MSE. Algoritma yang
+dibahas pada bagian sebelumnya menguraikan pendekatan *sequantial
+decision trees fitting* untuk meminimalkan kesalahan. Pendekatan khusus
+ini adalah bagaimana meningkatkan gradien meminimalkan fungsi *loss*
+*mean squared error* (MSE). Namun, seringkali kita ingin fokus pada
+fungsi *loss* lainnya seperti *mean absolute error* (MAE) atau untuk
+dapat menerapkan metode ini ke masalah klasifikasi dengan fungsi *loss*
+seperti *deviance*. *Gradient boosting machine* berasal dari fakta bahwa
+prosedur ini dapat digeneralisasi ke fungsi *loss* selain MSE.
+
+*Gradient Boosting* dianggap sebagai algoritma *gradient descent*.
+*Gradient descent* adalah algoritma optimasi yang sangat umum yang mampu
+menemukan solusi optimal untuk berbagai masalah. Gagasan umum *gradient
+descent* adalah mengubah parameter secara iteratif untuk meminimalkan
+fungsi *cost*. Misalkan kita adalah pemain ski menuruni bukit dan
+berpacu dengan teman kita. Strategi yang baik untuk mengalahkan teman
+kita ke bawah adalah mengambil jalan setapak dengan kemiringan paling
+curam. Inilah yang dilakukan oleh *gradient descent* - ini mengukur
+gradient lokal dari fungsi *loss* (*cost*) untuk sekumpulan parameter
+(\(\Theta\)) dan mengambil langkah-langkah ke arah gradien yang menurun.
+Setelah gradien nol, kita telah mencapai minimum.
+
+![Gradient descent (Sumber: Geron,
+2017)](http://uc-r.github.io/public/images/analytics/gbm/gradient_descent.png)
+
+Gradient descent dapat dilakukan pada setiap fungsi *loss* yang dapat
+diturunkan (*differentiable*). Akibatnya, ini memungkinkan GBM untuk
+mengoptimalkan berbagai fungsi *loss* seperti yang diinginkan. Parameter
+penting dalam *gradient descent* adalah *step size* yang ditentukan oleh
+*learning rate*. Jika *learning rate* terlalu kecil, maka algoritma akan
+mengambil banyak iterasi untuk menemukan minimum. Di sisi lain, jika
+tingkat pembelajaran terlalu tinggi, kita mungkin melewati batas minimum
+dan berakhir lebih jauh daripada saat kita mulai.
+
+![Perbandinga learning rate (Sumber: Geron,
+2017)](http://uc-r.github.io/public/images/analytics/gbm/learning_rate_comparison.png)
+
+Selain itu, tidak semua fungsi *cost* bersifat *covex* (berbentuk
+mangkuk). Mungkin ada *local minimas*, *plateaus*, dan medan tidak
+teratur lainnya dari fungsi *loss* yang membuat sulit menemukan minimum
+global. *Stochastic gradient descent* dapat membantu kita mengatasi
+masalah ini dengan mengambil sampel sebagian kecil dari pengamatan
+pelatihan (biasanya tanpa penggantian) dan menumbuhkan pohon berikutnya
+menggunakan subsampel itu. Ini membuat algoritma lebih cepat tetapi
+sifat stokastik dari random sampling juga menambahkan beberapa sifat
+acak dalam menuruni gradien fungsi *loss*. Meskipun keacakan ini tidak
+memungkinkan algoritma untuk menemukan minimum global absolut, itu
+sebenarnya dapat membantu algoritma melompat keluar dari minimum lokal
+dan mematikan *plateus* dan mendekati minimum global.
+
+![Stocahstic gradient descent (Sumber: Geron,
+2017)](http://uc-r.github.io/public/images/analytics/gbm/stochastic_gradient_descent.png)
+
+## Kelebihan dan Kekurangan
+
+**Kelebihan**
+
+  - Seringkali memberikan akurasi prediksi yang tidak dapat dikalahkan.
+  - Banyak fleksibilitas - dapat mengoptimalkan berbagai fungsi *loss*
+    dan menyediakan beberapa opsi *hyperparameter tuning* yang membuat
+    fungsi ini sangat fleksibel.
+  - Tidak diperlukan pra-pemrosesan data - seringkali berfungsi dengan
+    baik dengan nilai kategorikal dan numerik sebagaimana adanya.
+  - Menangani data yang hilang - tidak diperlukan imputasi.
+
+**Kekurangan**
+
+  - GBM akan terus ditingkatkan untuk meminimalkan semua kesalahan. Ini
+    bisa terlalu menekankan outlier dan menyebabkan overfitting. Harus
+    menggunakan validasi silang untuk menetralisir.
+  - Mahal secara komputasi - GBM sering membutuhkan banyak pohon (\>
+    1000) yang bisa menghabiskan banyak waktu dan memori.
+  - Fleksibilitas yang tinggi menghasilkan banyak parameter yang
+    berinteraksi dan sangat memengaruhi perilaku pendekatan (jumlah
+    iterasi, kedalaman pohon, parameter regularisasi, dll.). Ini
+    membutuhkan pencarian kotak besar selama penyetelan.
+  - Kurang dapat diartikan meskipun hal ini mudah diatasi dengan
+    berbagai alat (variable importance, partial dependence plots, LIME,
+    dll.).
+
+## Validasi Silang dan Parameter Tuning
+
+Lngkah pertama yang perlu dilakukan untuk *training* GBM adalah menyetel
+parameter validasi silang dan *hyperparameter tuning*. Pengaturan kedua
+hal tersebut ditampilkan pada sintaks berikut:
+
+``` r
+# spesifikasi metode validasi silang
+cv <- trainControl(
+  # possible value: "boot", "boot632", "optimism_boot", "boot_all", "cv", 
+  #                 "repeatedcv", "LOOCV", "LGOCV"
+  method = "cv", 
+  number = 10, 
+  # repeats = 5,
+  allowParallel = TRUE
+)
+```
+
+``` r
+hyper_grid <- expand.grid(
+  n.trees = 6000,
+  shrinkage = 0.01,
+  interaction.depth = c(3, 5, 7),
+  n.minobsinnode = c(5, 10, 15)
+)
+```
+
+Proses training dilakukan dengen menyetel argumen `method` sebagai `gbm`
+yang mendandakan kita akan melakukan *training* GBM.
+
+``` r
+system.time(
+gb_fit_cv <- train(
+  blueprint,
+  data = ames_train,
+  method = "gbm",
+  trControl = cv,
+  tuneGrid = hyper_grid,
+  verbose = FALSE,
+  metric = "RMSE"
+  )
+)
+```
+
+    ##     user   system  elapsed 
+    ## 3303.733    0.355 3319.811
+
+``` r
+gb_fit_cv
+```
+
+    ## Stochastic Gradient Boosting 
+    ## 
+    ## 2053 samples
+    ##   73 predictor
+    ## 
+    ## Recipe steps: nzv, integer, center, scale 
+    ## Resampling: Cross-Validated (10 fold) 
+    ## Summary of sample sizes: 1848, 1846, 1848, 1846, 1848, 1849, ... 
+    ## Resampling results across tuning parameters:
+    ## 
+    ##   interaction.depth  n.minobsinnode  RMSE      Rsquared   MAE     
+    ##   3                   5              27376.16  0.8987693  18078.85
+    ##   3                  10              27270.01  0.8966861  17850.91
+    ##   3                  15              27282.00  0.8945011  17639.32
+    ##   5                   5              27379.88  0.8997630  18154.27
+    ##   5                  10              27426.36  0.8993735  18150.26
+    ##   5                  15              27257.70  0.8964997  17812.77
+    ##   7                   5              27693.72  0.8988262  18542.38
+    ##   7                  10              27520.17  0.8993946  18256.58
+    ##   7                  15              27226.15  0.8963932  17850.18
+    ## 
+    ## Tuning parameter 'n.trees' was held constant at a value of 6000
+    ## 
+    ## Tuning parameter 'shrinkage' was held constant at a value of 0.01
+    ## RMSE was used to select the optimal model using the smallest value.
+    ## The final values used for the model were n.trees = 6000, interaction.depth =
+    ##  7, shrinkage = 0.01 and n.minobsinnode = 15.
+
+Proses *training* berlangsung selama 3333.327 detik. Terdapat 9 buah
+model yang dibentuk, dimana model dengan **RMSE** terkecil memiliki
+nilai *hyperparameter* `shrinkage = 0,01`, `n.trees = 6000`,
+`interaction.depth = 7` dan `n.minobsinnode = 15`. Nilai **RMSE** model
+tersebut adalah sebagai berikut:
+
+``` r
+boost_rmse <- gb_fit_cv$results %>%
+  arrange(RMSE) %>%
+  slice(1) %>%
+  select(RMSE) %>% pull()
+
+boost_rmse
+```
+
+    ## [1] 27226.15
+
+Nilai **RMSE** rata-rata yang diperoleh sedikit lebih baik dibandingkan
+model *random forest*.
+
+Visualisasi nilai *hyperparameter* terhadap **RMSE** model ditampilkan
+sebagai berikut:
+
+``` r
+ggplot(gb_fit_cv)
+```
+
+![](temp_files/figure-gfm/boost-vis-1.png)<!-- -->
+
+## Model Akhir
+
+Model terbaik dapat diekstrak dengan sintaks berikut:
+
+``` r
+gb_fit <- gb_fit_cv$finalModel
+```
+
+Performa prediksi model dapat dilihat berdasarkan visualisasi residual.
+
+``` r
+pred_train <- predict(gb_fit, n.trees = gb_fit$n.trees,
+                      baked_train)
+residual <- mutate(baked_train, residual = Sale_Price - pred_train)
+
+# resiual vs actual
+sc <- ggplot(residual, aes(x = Sale_Price, y = residual)) +
+  geom_point() 
+# residual distribution
+hs <- ggplot(residual, aes(x = residual)) +
+  geom_histogram()
+
+gridExtra::grid.arrange(sc, hs, ncol = 2)
+```
+
+![](temp_files/figure-gfm/boost-resid-1.png)<!-- -->
+
+Performa model dalam memprediksi data baru dapat dilihat berdasarkan
+\*\*RMSE\* pada data *test*.
+
+``` r
+# prediksi Sale_Price ames_test
+pred_test <- predict(gb_fit, n.trees = gb_fit$n.trees,
+                     baked_test)
+
+## RMSE
+RMSE(pred_test, baked_test$Sale_Price, na.rm = TRUE)
+```
+
+    ## [1] 27580.31
+
+## Interpretasi Fitur
+
+Untuk melihat fitur yang paling berpengaruh dalam model, kita dapat
+menggunakan *variable importance plot*.
+
+``` r
+vip(gb_fit_cv, num_features = 10)
+```
+
+![](temp_files/figure-gfm/boost-vip-1.png)<!-- -->
+
+``` r
+p1 <- pdp::partial(gb_fit_cv, pred.var = "Gr_Liv_Area") %>% autoplot()
+p2 <- pdp::partial(gb_fit_cv, pred.var = "Total_Bsmt_SF") %>% autoplot()
+p3 <- pdp::partial(gb_fit_cv, pred.var = "Garage_Cars") %>% autoplot()
+
+
+gridExtra::grid.arrange(p1, p2, p3, 
+                        ncol=2)
+```
+
+![](temp_files/figure-gfm/boost-pdp-1.png)<!-- -->
+
+Berdasarkan ouput yang dihasilkan, terdapat efek linier ketiga variabel
+tersebut terhadap variabel target.
+
+# Ringkasan Model
+
+Berdasarkan kagiatan validasi silang, diketahui model dengan kemampuan prediksi terbaik adalah model *gradient boosting*. Berikut adalah ringkasan **RMSE** masing-masing model:
+
+| Model     | RMSE     |
+|:----------|:---------|
+| Decision Trees | 37590.61 |
+| Baggig | 36081.25 |
+| Random Forest | 27727.74 |
+| Boosting | 27226.15 |
 

@@ -3,13 +3,22 @@ Analisis Prediktif Harga Rumah Menggunakan Tree Based Algorithm
 Moh. Rosidi
 7/22/2020
 
-# Pengantar
-
 # Dataset Ames
+
+Sebuah dataset terkait data properti yang ada di Ames IA. Dataset ini
+memiliki 82 variabel dan 2930 baris. Untuk informasi lebih lanjut
+terkait dataset ini, kunjungin tautan berikut:
+
+  - <https://ww2.amstat.org/publications/jse/v19n3/decock/DataDocumentation.txt>
+  - <http://ww2.amstat.org/publications/jse/v19n3/decock.pdf>
 
 # Persiapan
 
 ## Library
+
+Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif
+menggunakan *tree based algorithm*. Paket-paket ditampilkan sebagai
+berikut:
 
 ``` r
 # library pembantu
@@ -37,13 +46,73 @@ library(vip)
 library(pdp)
 ```
 
+**Paket Pembantu**
+
+1.  `plyr` : paket manipulasi data yang digunakan untuk membantu proses
+    *fitting* sejumlah model pohon.
+2.  `e1071` : paket dengan sejumlah fungsi untuk melakukan *latent class
+    analysis, short time Fourier transform, fuzzy clustering, support
+    vector machines, shortest path computation, bagged clustering, naive
+    Bayes classifier*, dll. Paket ini merupakan paket pembantu dalam
+    proses *fitting* sejumlah model pohon
+3.  `foreach` : paket untuk melakukan *parallel computing*. Diperlukan
+    untuk melakukan *fitting* model *parallel random forest*
+4.  `import` : paket yang menangani *dependency* fungsi antar paket
+    dalam proses *fitting* model *parallel random forest*
+5.  `tidyverse` : kumpulan paket dalam bidang data science
+6.  `rsample` : membantu proses *data splitting*
+7.  `recipes`: membantu proses data pra-pemrosesan
+8.  `DataExplorer` : EDA
+9.  `skimr` : membuat ringkasan data
+10. `modeldata` : kumpulan dataset untuk membuat model *machine
+    learning*
+
+**Paket untuk Membangun Model**
+
+1.  `caret` : berisikan sejumlah fungsi yang dapat merampingkan proses
+    pembuatan model regresi dan klasifikasi
+2.  `rpart` : membentuk model *decision trees*
+3.  `ipred` : membentuk model *bagging*
+4.  `randomForest` : membentuk model *random forest*
+5.  `gbm` : membentuk model *gradient boost model*
+
+**Paket Interpretasi Model**
+
+1.  `rpart.plot` : visualisasi *decision trees*
+2.  `vip` : visualisasi *variable importance*
+3.  `pdp` : visualisasi plot ketergantungan parsial
+
 ## Import Dataset
+
+Import dataset dilakukan dengan menggunakan fungsi `data()`. Fungsi ini
+digunakan untuk mengambil data yang ada dalam sebuah paket.
 
 ``` r
 data("ames")
 ```
 
 # Data Splitting
+
+Proses *data splitting* dilakukan setelah data di import ke dalam
+sistem. Hal ini dilakukan untuk memastikan tidak adanya kebocoran data
+yang mempengaruhi proses pembuatan model. Data dipisah menjadi dua buah
+set, yaitu: *training* dan *test*. Data *training* adalah data yang akan
+kita gunakan untuk membentuk model. Seluruh proses sebelum uji model
+akan menggunakan data *training*. Proses tersebut, antara lain: EDA,
+*feature engineering*, dan validasi silang. Data *test* hanya digunakan
+saat kita akan menguji performa model dengan data baru yang belum pernah
+dilihat sebelumnya.
+
+Terdapat dua buah jenis sampling pada tahapan *data splitting*, yaitu:
+
+1.  *random sampling* : sampling acak tanpa mempertimbangkan adanya
+    strata dalam data
+2.  *startified random sampling* : sampling dengan memperhatikan strata
+    dalam sebuah variabel.
+
+Dalam proses pembentukan model kali ini, kita akan menggunakan metode
+kedua dengan tujuan untuk memperoleh distribusi yang seragam dari
+variabel target (`Sale_Price`).
 
 ``` r
 set.seed(123)
@@ -52,6 +121,10 @@ split  <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
 ames_train  <- training(split)
 ames_test   <- testing(split)
 ```
+
+Untuk mengecek distribusi dari kedua set data, kita dapat
+mevisualisasikan distribusi dari variabel target pada kedua set
+tersebut.
 
 ``` r
 # training set
@@ -71,7 +144,30 @@ ggplot(ames_test, aes(x = Sale_Price)) +
 
 # Analisis Data Eksploratif
 
+Analsiis data eksploratif (EDA) ditujukan untuk mengenali data sebelum
+kita menentukan algoritma yang cocok digunakan untuk menganalisa data
+lebih lanjut. EDA merupakan sebuah proses iteratif yang secara garis
+besar menjawab beberapa pertanyaan umum, seperti:
+
+1.  Bagaimana distribusi data pada masing-masing variabel?
+2.  Apakah terdapat asosiasi atau hubungan antar variabel dalam data?
+
 ## Ringkasan Data
+
+Terdapat dua buah fungsi yang digunakan dalam membuat ringkasan data,
+antara lain:
+
+1.  `glimpse()`: varian dari `str()` untuk mengecek struktur data.
+    Fungsi ini menampilkan transpose dari tabel data dengan menambahkan
+    informasi, seperti: jenis data dan dimensi tabel.
+2.  `skim()` : fungsi dari paket `skimr` untuk membuat ringkasan data
+    yang lebih detail dibanding `glimpse()`, seperti: statistika
+    deskriptif masing-masing kolom, dan informasi *missing value* dari
+    masing-masing kolom.
+3.  `plot_missing()` : fungsi untuk memvisualisasikan persentase
+    *missing value* pada masing-masing variabel atau kolom data
+
+<!-- end list -->
 
 ``` r
 glimpse(ames_train)
@@ -262,7 +358,16 @@ plot_missing(ames_train)
 
 ![](temp_files/figure-gfm/missing-vis-1.png)<!-- -->
 
+Berdasarkan ringkasan data yang dihasilkan, diketahui dimensi data
+sebesar 2053 baris dan 74 kolom. Dengan rincian masing-masing kolom,
+yaitu: 40 kolom dengan jenis data factor dan 34 kolom dengan jenis data
+numeric. Informasi lain yang diketahui adalah seluruh kolom dalam data
+tidak memiliki *missing value*.
+
 ## Variasi
+
+Variasi dari tiap variabel dapat divisualisasikan dengan menggunakan
+histogram (numerik) dan baplot (kategorikal).
 
 ``` r
 plot_histogram(ames_train, ncol = 2L, nrow = 2L)
@@ -275,6 +380,12 @@ plot_bar(ames_train, ncol = 2L, nrow = 2L)
 ```
 
 ![](temp_files/figure-gfm/bar-1.png)<!-- -->![](temp_files/figure-gfm/bar-2.png)<!-- -->![](temp_files/figure-gfm/bar-3.png)<!-- -->![](temp_files/figure-gfm/bar-4.png)<!-- -->![](temp_files/figure-gfm/bar-5.png)<!-- -->![](temp_files/figure-gfm/bar-6.png)<!-- -->![](temp_files/figure-gfm/bar-7.png)<!-- -->![](temp_files/figure-gfm/bar-8.png)<!-- -->![](temp_files/figure-gfm/bar-9.png)<!-- -->![](temp_files/figure-gfm/bar-10.png)<!-- -->
+
+Berdasarkan hasil visualisasi diperoleh bahwa sebagian besar variabel
+numerik memiliki distribusi yang tidak simetris. Sedangkan pada variabel
+kategorikal diketahui bahwa terdapat beberapa variabel yang memiliki
+variasi rendah atau mendekati nol. Untuk mengetahui variabel dengan
+variabilitas mendekati nol atau nol, dapat menggunakan sintaks berikut:
 
 ``` r
 nzvar <- nearZeroVar(ames_train, saveMetrics = TRUE) %>% 
@@ -303,6 +414,9 @@ nzvar
     ## 17            Pool_QC  681.66667    0.24354603   FALSE TRUE
     ## 18       Misc_Feature   30.49231    0.19483682   FALSE TRUE
     ## 19           Misc_Val  165.33333    1.41256698   FALSE TRUE
+
+Berikut adalah ringkasan data pada variabel yang tidak memiliki variasi
+yang mendekati nol.
 
 ``` r
 without_nzvar <- select(ames_train, !nzvar$rowname)
@@ -387,6 +501,9 @@ Data summary
 | Sale\_Price      |          0 |              1 | 180996.28 | 80258.90 | 13100.00 | 129500.00 | 160000.00 | 213500.00 | 755000.00 | ▇▇▁▁▁ |
 | Longitude        |          0 |              1 |   \-93.64 |     0.03 |  \-93.69 |   \-93.66 |   \-93.64 |   \-93.62 |   \-93.58 | ▅▅▇▆▁ |
 | Latitude         |          0 |              1 |     42.03 |     0.02 |    41.99 |     42.02 |     42.03 |     42.05 |     42.06 | ▂▂▇▇▇ |
+
+Berikut adalah tabulasi observasi pada masing-masing variabel yang
+memiliki jumlah kategori \>= 10.
 
 ``` r
 # MS_SubClass 
@@ -481,13 +598,10 @@ count(ames_train, Exterior_2nd) %>% arrange(n)
     ## 15 MetalSd        321
     ## 16 VinylSd        710
 
-``` r
-plot_bar(without_nzvar)
-```
-
-![](temp_files/figure-gfm/unnamed-chunk-1-1.png)<!-- -->![](temp_files/figure-gfm/unnamed-chunk-1-2.png)<!-- -->![](temp_files/figure-gfm/unnamed-chunk-1-3.png)<!-- -->
-
 ## Kovarian
+
+Kovarian dapat dicek melalui visualisasi *heatmap* koefisien korelasi
+(numerik) atau menggunakan *boxplot* (kontinu vs kategorikal)
 
 ``` r
 plot_correlation(ames_train, type = "continuous", 
@@ -496,7 +610,98 @@ plot_correlation(ames_train, type = "continuous",
 
 ![](temp_files/figure-gfm/heatmap-1.png)<!-- -->
 
+``` r
+plot_boxplot(ames_train, by = "Sale_Price", ncol = 2, nrow = 1)
+```
+
+![](temp_files/figure-gfm/boxplot-1.png)<!-- -->![](temp_files/figure-gfm/boxplot-2.png)<!-- -->![](temp_files/figure-gfm/boxplot-3.png)<!-- -->![](temp_files/figure-gfm/boxplot-4.png)<!-- -->![](temp_files/figure-gfm/boxplot-5.png)<!-- -->![](temp_files/figure-gfm/boxplot-6.png)<!-- -->![](temp_files/figure-gfm/boxplot-7.png)<!-- -->![](temp_files/figure-gfm/boxplot-8.png)<!-- -->![](temp_files/figure-gfm/boxplot-9.png)<!-- -->![](temp_files/figure-gfm/boxplot-10.png)<!-- -->![](temp_files/figure-gfm/boxplot-11.png)<!-- -->![](temp_files/figure-gfm/boxplot-12.png)<!-- -->![](temp_files/figure-gfm/boxplot-13.png)<!-- -->![](temp_files/figure-gfm/boxplot-14.png)<!-- -->![](temp_files/figure-gfm/boxplot-15.png)<!-- -->![](temp_files/figure-gfm/boxplot-16.png)<!-- -->![](temp_files/figure-gfm/boxplot-17.png)<!-- -->
+
 # Target and Feature Engineering
+
+*Data preprocessing* dan *engineering* mengacu pada proses penambahan,
+penghapusan, atau transformasi data. Waktu yang diperlukan untuk
+memikirkan identifikasi kebutuhan *data engineering* dapat berlangsung
+cukup lama dan proprsinya akan menjadi yang terbesar dibandingkan
+analisa lainnya. Hal ini disebabkan karena kita perlu untuk memahami
+data apa yang akan kita oleh atau diinputkan ke dalam model.
+
+Untuk menyederhanakan proses *feature engineerinh*, kita harus
+memikirkannya sebagai sebuah *blueprint* dibanding melakukan tiap
+tugasnya secara satu persatu. Hal ini membantu kita dalam dua hal:
+
+1.  Berpikir secara berurutan
+2.  Mengaplikasikannya secara tepat selama proses *resampling*
+
+## Urutan Langkah-Langkah Feature Engineering
+
+Memikirkan *feature engineering* sebagai sebuah *blueprint* memaksa kita
+untuk memikirkan urutan langkah-langkah *preprocessing* data. Meskipun
+setiap masalah mengharuskan kita untuk memikirkan efek *preprocessing*
+berurutan, ada beberapa saran umum yang harus kita pertimbangkan:
+
+  - Jika menggunakan log atau transformasi Box-Cox, jangan memusatkan
+    data terlebih dahulu atau melakukan operasi apa pun yang dapat
+    membuat data menjadi tidak positif. Atau, gunakan transformasi
+    Yeo-Johnson sehingga kita tidak perlu khawatir tentang hal ini.
+  - *One-hot* atau *dummy encoding* biasanya menghasilkan data jarang
+    (*sparse*) yang dapat digunakan oleh banyak algoritma secara
+    efisien. Jika kita menstandarisasikan data tersebut, kita akan
+    membuat data menjadi padat (*dense*) dan kita kehilangan efisiensi
+    komputasi. Akibatnya, sering kali lebih disukai untuk standardisasi
+    fitur numerik kita dan kemudian *one-hot/dummy endode*.
+  - Jika kila mengelompokkan kategori (*lumping*) yang jarang terjadi
+    secara bersamaan, lakukan sebelum *one-hot/dummy endode*.
+  - Meskipun kita dapat melakukan prosedur pengurangan dimensi pada
+    fitur-fitur kategorikal, adalah umum untuk melakukannya terutama
+    pada fitur numerik ketika melakukannya untuk tujuan rekayasa fitur.
+
+Sementara kebutuhan proyek kita mungkin beragam, berikut ini adalah
+urutan langkah-langkah potensial yang disarankan untuk sebagian besar
+masalah:
+
+1.  Filter fitur dengan varians nol (*zero varians*) atau hampir nol
+    (*near zero varians*).
+2.  Lakukan imputasi jika diperlukan.
+3.  Normalisasi untuk menyelesaikan *skewness* fitur numerik.
+4.  Standardisasi fitur numerik (*centering* dan *scaling*).
+5.  Lakukan reduksi dimensi (mis., PCA) pada fitur numerik.
+6.  *one-hot/dummy endode* pada fitur kategorikal.
+
+## Meletakkan Seluruh Proses Secara Bersamaan
+
+Untuk mengilustrasikan bagaimana proses ini bekerja bersama menggunakan
+R, mari kita lakukan penilaian ulang sederhana pada set data `ames` yang
+kita gunakan dan lihat apakah beberapa *feature engineering* sederhana
+meningkatkan kemampuan prediksi model kita. Tapi pertama-tama, kita
+berkenalan dengat paket `recipe`.
+
+Paket `recipe` ini memungkinkan kita untuk mengembangkan *bluprint
+feature engineering* secara berurutan. Gagasan di balik `recipe` mirip
+dengan `caret :: preProcess()` di mana kita ingin membuat *blueprint
+preprocessing* tetapi menerapkannya nanti dan dalam setiap resample.
+
+Ada tiga langkah utama dalam membuat dan menerapkan rekayasa fitur
+dengan `recipe`:
+
+1.  `recipe()`: tempat kita menentukan langkah-langkah rekayasa fitur
+    untuk membuat *blueprint*.
+2.  `prep()`: memperkirakan parameter *feature engineering* berdasarkan
+    data *training*.
+3.  `bake()`: terapkan *blueprint* untuk data baru.
+
+Langkah pertama adalah di mana kita menentukan *blueprint*. Dengan
+proses ini, Kita memberikan formula model yang ingin kita buat (variabel
+target, fitur, dan data yang menjadi dasarnya) dengan fungsi `recipe()`
+dan kemudian kita secara bertahap menambahkan langkah-langkah rekayasa
+fitur dengan fungsi `step_xxx()`.
+
+Secara umum *tree based model* tidak memerlukan banyak *data
+preprocessing*. Hal ini disebabkan karena model ini merupakan model
+non-parameterik dan tidak bergantung pada bentuk distribusi data.
+Tahapan *preprocessing* dimasudkan untuk menfilter fitur dengan varians
+nol (*zero varians*) atau hampir nol (*near zero varians*) dan
+standardisasi variabel untuk mempercepat proses komputasi model. Berikut
+adalah implementasi tahapan tersebut:
 
 ``` r
 blueprint <- recipe(Sale_Price ~., data = ames_train) %>%
@@ -525,6 +730,10 @@ blueprint
     ## Centering for all_numeric(), -all_outcomes()
     ## Scaling for all_numeric(), -all_outcomes()
 
+Selanjutnya, *blueprint* yang telah dibuat dilakukan *training* pada
+data *training*. Perlu diperhatikan, kita tidak melakukan proses
+*training* pada data *test* untuk mencegah *data leakage*.
+
 ``` r
 prepare <- prep(blueprint, training = ames_train)
 prepare
@@ -546,6 +755,9 @@ prepare
     ## Integer encoding for MS_SubClass, Neighborhood, Condition_1, ... [trained]
     ## Centering for MS_SubClass, Lot_Frontage, ... [trained]
     ## Scaling for MS_SubClass, Lot_Frontage, ... [trained]
+
+Langkah terakhir adalah mengaplikasikan *blueprint* pada data *training*
+dan *test* menggunakan fungsi `bake()`.
 
 ``` r
 baked_train <- bake(prepare, new_data = ames_train)
@@ -672,4 +884,3 @@ Data summary
 | Longitude            |          0 |              1 |      0.0 |     1.0 |   \-1.96 |    \-0.68 |   4.0e-02 |      0.80 |      2.57 | ▅▅▇▆▁ |
 | Latitude             |          0 |              1 |      0.0 |     1.0 |   \-2.61 |    \-0.67 |   1.0e-02 |      0.83 |      1.58 | ▂▂▇▇▇ |
 | Sale\_Price          |          0 |              1 | 180996.3 | 80258.9 | 13100.00 | 129500.00 |   1.6e+05 | 213500.00 | 755000.00 | ▇▇▁▁▁ |
-
