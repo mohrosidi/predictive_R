@@ -20,6 +20,8 @@ Repository ini berisi kode sumber dari worshop **Predictive Analytics with R**. 
 
 ## Dokumentasi Klasifikasi
 
+1. [Pengenalan Data, Data Spliting, dan EDA](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#dataset-ames)
+2. [Feature Engineering](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#target-and-feature-engineering)
 1. [Logistic Regression]()
 2. [KNN]()
 3. [Naive Bayes]()
