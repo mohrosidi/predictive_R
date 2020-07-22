@@ -1,0 +1,331 @@
+---
+title: "Analisis Prediktif Harga Rumah Menggunakan Tree Based Algorithm"
+author: "Moh. Rosidi"
+date: "7/22/2020"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Pengantar
+
+
+
+# Dataset Ames
+
+
+
+# Persiapan {.tabset}
+
+## Library
+
+```{r import-lib}
+# library pembantu
+library(plyr)
+library(e1071)
+library(foreach)
+library(import)
+library(tidyverse)
+library(rsample)
+library(recipes)
+library(DataExplorer)
+library(skimr)
+library(modeldata)
+
+# library model
+library(caret) 
+library(rpart)
+library(ipred)
+library(randomForest)
+library(gbm)
+
+# paket penjelasan model
+library(rpart.plot)  
+library(vip)
+library(pdp)
+```
+
+
+## Import Dataset
+
+```{r import-data}
+data("ames")
+```
+
+
+# Data Splitting
+
+```{r data-split}
+set.seed(123)
+
+split  <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
+ames_train  <- training(split)
+ames_test   <- testing(split)
+```
+
+
+```{r target-vis}
+# training set
+ggplot(ames_train, aes(x = Sale_Price)) + 
+  geom_density() 
+# test set
+ggplot(ames_test, aes(x = Sale_Price)) + 
+  geom_density() 
+```
+
+
+# Analisis Data Eksploratif
+
+## Ringkasan Data
+
+```{r glimpse}
+glimpse(ames_train)
+```
+
+```{r skim}
+skim(ames_train)
+```
+
+```{r missing-vis}
+plot_missing(ames_train)
+```
+
+
+## Variasi
+
+```{r hist}
+plot_histogram(ames_train, ncol = 2L, nrow = 2L)
+```
+
+```{r bar}
+plot_bar(ames_train, ncol = 2L, nrow = 2L)
+```
+
+```{r nzv}
+nzvar <- nearZeroVar(ames_train, saveMetrics = TRUE) %>% 
+  rownames_to_column() %>% 
+  filter(nzv)
+nzvar
+```
+
+```{r wt-nzv}
+without_nzvar <- select(ames_train, !nzvar$rowname)
+skim(without_nzvar)
+```
+
+```{r count-nominal}
+# MS_SubClass 
+count(ames_train, MS_SubClass) %>% arrange(n)
+# Neighborhood
+count(ames_train, Neighborhood) %>% arrange(n)
+# Neighborhood
+count(ames_train, Exterior_1st) %>% arrange(n)
+# Exterior_2nd
+count(ames_train, Exterior_2nd) %>% arrange(n)
+```
+
+```{r}
+plot_bar(without_nzvar)
+```
+
+
+## Kovarian
+
+```{r heatmap}
+plot_correlation(ames_train, type = "continuous", 
+                 cor_args = list(method = "spearman"))
+```
+
+
+# Target and Feature Engineering
+
+```{r preprocess}
+blueprint <- recipe(Sale_Price ~., data = ames_train) %>%
+  # feature filtering
+  step_nzv(all_nominal()) %>%
+  # label encoding
+  step_integer(dplyr::matches("Exterior|Neighbor|Sub|Qual|Cond|QC|Qu|Type")) %>%
+  # standardization
+  step_center(all_numeric(), -all_outcomes()) %>%
+  step_scale(all_numeric(), -all_outcomes())
+blueprint
+```
+
+```{r prep}
+prepare <- prep(blueprint, training = ames_train)
+prepare
+```
+
+```{r baked}
+baked_train <- bake(prepare, new_data = ames_train)
+baked_test <- bake(prepare, new_data = ames_test)
+baked_train
+```
+
+```{r}
+skim(baked_train)
+```
+
+
+# Decision Tree Model
+
+*Tree-based models* adalah kelas algoritma nonparametrik yang bekerja dengan mempartisi ruang fitur ke sejumlah daerah yang lebih kecil (tidak tumpang tindih) dengan nilai respons yang sama menggunakan seperangkat *aturan pemisahan*. Prediksi diperoleh dengan memasang model yang lebih sederhana (misal: Konstanta seperti nilai respons rata-rata) di setiap wilayah. Metode membagi dan menaklukkan seperti itu dapat menghasilkan aturan sederhana yang mudah ditafsirkan dan divisualisasikan dengan diagram pohon. 
+
+Ada banyak metode yang dapat digunakan membangun pohon regresi, tetapi salah satu yang tertua dikenal sebagai pendekatan pohon klasifikasi dan regresi (CART) yang dikembangkan oleh [Breiman et al. (1984)](https://www.amazon.com/Classification-Regression-Wadsworth-Statistics-Probability/dp/0412048418). Tutorial ini berfokus pada bagian regresi CART. Pohon regresi dasar mempartisi data yang ditetapkan ke dalam subkelompok yang lebih kecil dan kemudian melakukan fitting konstanta sederhana untuk setiap pengamatan dalam subkelompok. Partisi dicapai dengan partisi biner berturut-turut (alias partisi rekursif) berdasarkan pada berbagai prediktor. Konstanta untuk memprediksi didasarkan pada nilai respons rata-rata untuk semua pengamatan yang termasuk dalam subkelompok tersebut.
+
+Sebagai contoh, misalkan kita ingin memprediksi mil per galon mobil rata-rata berdasarkan ukuran silinder (`cyl`) dan tenaga kuda (`hp`). Semua pengamatan melalui pohon ini, dinilai pada simpul tertentu, dan lanjutkan ke kiri jika jawabannya "ya" atau lanjutkan ke kanan jika jawabannya "tidak". Jadi, pertama, semua pengamatan yang memiliki 6 atau 8 silinder pergi ke cabang kiri, semua pengamatan lainnya dilanjutkan ke cabang kanan. Selanjutnya, cabang kiri selanjutnya dipartisi oleh tenaga kuda. Pengamatan 6 atau 8 silinder dengan tenaga kuda yang sama atau lebih besar dari 192 dilanjutkan ke cabang kiri; mereka yang kurang dari 192 hp melanjutkan ke kanan. Cabang-cabang ini mengarah ke *terminal node* atau *leaf nodes* yang berisi nilai respons prediksi kita. Pada dasarnya, semua pengamatan (mobil dalam contoh ini) yang tidak memiliki 6 atau 8 silinder (cabang paling kanan) rata-rata 27 mpg. Semua pengamatan yang memiliki 6 atau 8 silinder dan memiliki lebih dari 192 hp (cabang paling kiri) rata-rata 13 mpg.
+
+![Prediksi mpg berdasarkan variabel cyl dan hp (Sumber: <http://uc-r.github.io/>)](http://uc-r.github.io/public/images/analytics/regression_trees/ex_regression_tree.png)
+
+Contoh sederhana tersebut dapat kita generalisasikan. Variabel respon kontinu $Y$ dan dua buah variabel input $X_1$ dan $X_2$. Partisi rekursif menghasilkan tiga buah area (*nodes*), yaitu: $R_1$, $R_2$, dan $R_3$ dimana model memprediksi $Y$ dengan sebuah konstanta $c_m$ pada area $R_m$:
+
+$$
+\hat{f}\left(X\right) = \sum_{m=1}^{3} c_{m} I\left(X_1,X_2\right) \in R_m
+$$
+
+## Menentukan Split pada Decision Tree
+
+Pertama, penting untuk mewujudkan partisi variabel yang dilakukan secara *top-down*. Ini hanya berarti bahwa partisi yang dilakukan sebelumnya pada pohon yang terbentuk tidak akan berubah oleh partisi selanjutnya. Tetapi bagaimana partisi ini dibuat? Model dimulai dengan seluruh data,$S$, dan mencari setiap nilai berbeda dari setiap variabel input untuk menemukan prediktor dan nilai *split* yang membagi data menjadi dua area ($R_1$ dan $R_2$) sedemikian rupa sehingga jumlah kesalahan kuadrat keseluruhan diminimalkan:
+
+$$
+minimize \left{SSE = \sum_{i \in R_1}^{ } \left(y_i-c_1\right)^2 +  \sum_{i \in R_2}^{ } \left(y_i-c_2\right)^2\right}
+$$
+
+Setelah menemukan  *split* terbaik, kita mempartisi data menjadi dua area yang dihasilkan dan mengulangi proses *split* pada masing-masing dua area Proses ini berlanjut sampai kriteria penghentian tercapai. Pohon yang dihasilkan biasanya sangat dalam, kompleks yang dapat menghasilkan prediksi yang baik pada data *training*, tetapi kemungkinan besar model yang dibuat *overfiting* dan akan menghasilkan hasil prediksi yang buruk pada data *test*.
+
+## Cost complexity criterion
+
+Seringkali ada keseimbangan yang harus dicapai dalam kedalaman dan kompleksitas pohon untuk mengoptimalkan kinerja prediksi pada beberapa data yang tidak terlihat. Untuk menemukan keseimbangan ini, kita biasanya menumbuhkan pohon yang sangat besar seperti yang didefinisikan pada bagian sebelumnya dan kemudian memangkasnya kembali untuk menemukan sub-pohon yang optimal. Kita menemukan sub-pohon optimal dengan menggunakan parameter kompleksitas biaya ($\alpha$) yang memberikan penalti pada fungsi objektif pada persamaan penentuan *split* untuk setiap *terminal nodes* pada tiap pohon ($T$).
+
+$$
+minimize\left{SSE+\alpha\left|T\right|\right}
+$$
+
+Untuk nilai $alpha$ yang diberikan, kita dapat menemukan pohon pemangkasan terkecil yang memiliki kesalahan penalti terendah. Jika kita terbiasa dengan regresi dengan penalti, kita akan menyadari hubungan dekat dengan penalti norma lasso $L_1$. Seperti dengan metode regularisasi ini, penalti yang lebih kecil cenderung menghasilkan model yang lebih kompleks dan menghasilkan pohon yang lebih besar. Sedangkan penalti yang lebih besar menghasilkan pohon yang jauh lebih kecil. Akibatnya, ketika pohon tumbuh lebih besar, pengurangan SSE harus lebih besar daripada penalti kompleksitas biaya. Biasanya, kita mengevaluasi beberapa model melintasi spektrum $\alpha$ dan menggunakan teknik validasi silang untuk mengidentifikasi $\alpha$ optimal dan sub-pohon optimal.
+
+## Validasi Silang dan Parameter Tuning
+
+Langkah pertama yang perlu dilakukan dalam melakukan kegiatan validasi silang adalah menentukan spesifikasi parameter validasi silang. Fungsi `trainControl()` merupakan fungsi yang dapat kita gunakan untu menetukan metode validasi silang yang dilakukan dan spesifikasi terkait metode validasi silang yang dugunakan.
+
+Pada sintaks berikut dispesifikasikan `method` yang digunakan adalah `"cv"` dengan jumlah partisi sebanyak 10 buah. Parameter lain yang ikut ditambahkan dalam fungsi `trainControl()` adalah `search` yang menspesifikasikan metode *parameter tuning* yang dispesifikasikan dengan nilai `"random"`.
+
+```{r}
+# spesifikasi metode validasi silang
+cv <- trainControl(
+  # possible value: "boot", "boot632", "optimism_boot", "boot_all", "cv", 
+  #                 "repeatedcv", "LOOCV", "LGOCV"
+  method = "cv", 
+  number = 10,
+  search = "random",
+  # repeats = 5,
+  allowParallel = TRUE
+)
+```
+
+Selanjutnya, hasil pengaturan parameter training diinputkan ke dalam fungsi `train()`. Dalam fungsi ini dispesifikasikan sejumlah argumen seperti: formula yang digunakan, data training yang akan digunakan, `method` atau `engine` yang akan digunakan untuk membentuk model. Proses *parameter tuning* diatur melalui argumen `tuneLength` yang merupakan kombinasi antar parameter yang akan di-*tuning* secara acak. Dalam hal ini dipsesifkasikan nilai `tuneLength` sebesar 10 yang menunjukkan 10 kombinasi *parameter-tuning* yang digunakan.
+
+```{r}
+system.time(
+dt_fit_cv <- train(
+  blueprint,
+  data = ames_train,
+  method = "rpart",
+  trControl = cv,
+  tuneLength = 10,
+  metric = "RMSE"
+  )
+)
+
+dt_fit_cv
+```
+
+Proses *training* berlangsung selama 53,94 detik dengan 8 buah model yang terbentuk. Model terbaik dipilih berdasarkan nilai **RMSE** terkecil. Berdasarkan kriteria tersebut model yang terpilih adalalah model yang memiliki nilai `cp = 0.0002333903` (cp : parameter kompleksitas atau penalti). Nilai **RMSE** rata-rata model terbaik adalah sebagai berikut:
+
+
+```{r dt-rmse}
+dt_rmse <- dt_fit_cv$results %>%
+  arrange(RMSE) %>%
+  slice(1) %>%
+  select(RMSE) %>% pull()
+
+dt_rmse
+```
+
+Visualisasi hubungan antara parameter kompleksitas dan **RMSE** ditampilkan pada gambar berikut:
+
+```{r dt-cv-vis, chace = TRUE}
+# visualisasi
+ggplot(dt_fit_cv)
+```
+
+
+## Model Akhir
+
+Model terbaik dari hasil proses validasi silang selanjutnya diekstrak. Hal ini berguna untuk mengurangi ukuran model yang tersimpan. Secara default fungsi `train()` akan mengembalikan model dengan performa terbaik. Namun, terdapat sejumlah komponen lain dalam objek yang terbentuk, seperti: hasil prediksi, ringkasan training, dll. yang membuat ukuran objek menjadi besar. Untuk menguranginya, kita perlu mengambil objek model final dari objek hasil validasi silang.
+
+```{r dt-final}
+dt_fit <- dt_fit_cv$finalModel
+```
+
+Visualisasi model final *decision tree*, dilakukan menggunakan fungsi `rpart.plot()`. 
+
+```{r dt-vis}
+# visualisasi
+rpart.plot(dt_fit)
+```
+
+Besarnya dimensi (jumlah variabel) pada data menyebabkan hasil visualisasi model *decision tree* menjadi terlalu padat dan sulit menampilkan informasi pada tiap *node*-nya.
+
+Cara lain untuk melihat performa sebuah model regresi adalah dengan melihat visualisasi nilai residunya. Berikut adalah sintaks yang digunakan:
+
+```{r dt-res-vis}
+pred_train <- predict(dt_fit, baked_train)
+residual <- mutate(baked_train, residual = Sale_Price - pred_train)
+
+# resiual vs actual
+sp <- ggplot(residual, aes(x = Sale_Price, y = residual)) +
+  geom_point()
+# residual distribution
+hs <- ggplot(residual, aes(x = residual)) +
+  geom_histogram()
+
+gridExtra::grid.arrange(sp, hs, ncol = 2)
+```
+
+Berdasarkan hasil visualisasi dapat terlihat pola heteroskedastisitas pada *scatterplot* residu vs nilai aktual `Sale_Price`. Pola yang dihasilkan menunjukkan bahwa model dapat memprediksi dengan cukup baik pada rentang `Sale_Price` < 400.000. Sedangkan pada nilai diatasnya residu menghasilkan variasi yang cenderung terus melebar yang menandakan pada area ini model tidak menghasilkan prediksi yang cukup baik.
+
+Model yang dihasilkan selanjutnya dapat kita uji lagi menggunakan data baru. Berikut adalah perhitungan nilai **RMSE** model pada data *test*.
+
+```{r dt-rmse-test}
+# prediksi Sale_Price ames_test
+pred_test <- predict(dt_fit, baked_test)
+
+## RMSE
+RMSE(pred_test, baked_test$Sale_Price, na.rm = TRUE)
+```
+
+## Interpretasi Fitur
+
+Untuk mengetahui variabel yang paling berpengaruh secara global terhadap hasil prediksi model *decision tree*, kita dapat menggunakan plot *variable importance*.
+
+```{r dt-vip}
+vip(dt_fit_cv, num_features = 10)
+```
+
+Berdasarkan terdapat 2 buah variabel yang berpengaruh besar terhadap prediksi yang dihasilkan oleh model, antara lain: `Gr_Liv_Area`dan `Year_Remod_Add`. Untuk melihat efek dari masing-masing variabel terhadap variabel respon, kita dapat menggunakan *partial dependence plot*.
+
+```{r dt-pdp}
+p1 <- partial(dt_fit_cv, pred.var = "Gr_Liv_Area") %>% autoplot()
+p2 <- partial(dt_fit_cv, pred.var = "Year_Remod_Add") %>% autoplot()
+p3 <- partial(dt_fit_cv, pred.var = c("Gr_Liv_Area", "Year_Remod_Add")) %>% 
+  plotPartial(levelplot = FALSE, zlab = "yhat", drape = TRUE, 
+              colorkey = TRUE, screen = list(z = -20, x = -60))
+
+
+gridExtra::grid.arrange(p1, p2, p3, 
+                        ncol=2)
+```
+
+Berdasarkan hasil visualisasi, terdapat relasi non-linear pada variabel variabel terhadap variabel target. Sebagai contoh variabel `Gr_liv_Area` memiliki relasi nonlinear terhadap `Sale_Price` yang ditunjukkan pada peningkatan nilai `Sale_Price` pada kisaran nilai  `Gr_liv_Area` 500-2400 dan kurva melandai dan cenderung konstan pada nilai `Gr_liv_Area` di atas 2400. Hal yang sama terjadi pula terhadap variabel `Year_Remod_Add`, dimana terjadi kenaikan tinggin pada tahun 1978-1979 dan melandai pada tahun-tahun setelahnya. Pada kurva interaksi, terlihat bahwa *decision trees* memiliki kurva prediksi rigid yang tidak halus. Hal ini sesuai dengan statemen yang telah dijelaskan di awal bahwa *decision trees* membagi data ke dalam sejumlah area dengan meminimisasi *impuritas* dalam pembagiannya. Pada kurva relasi juga dapat dilihat bahwa kenaikan nilai kedua fitur tersebut mempengaruhi kenaikan nilai variabel `Sale_Price`.
