@@ -1,16 +1,41 @@
 ---
-title: "Data Spliting dan Feature Engineering"
+title: "K-Nearest Neighbors"
 author: "Moh. Rosidi"
 date: "7/23/2020"
 output: github_document
+
 ---
 
-# Dataset Ames
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-Sebuah dataset terkait data properti yang ada di Ames IA. Dataset ini memiliki 82 variabel dan 2930 baris. Untuk informasi lebih lanjut terkait dataset ini, kunjungin tautan berikut:
+# Dataset Spotify
 
-* <https://ww2.amstat.org/publications/jse/v19n3/decock/DataDocumentation.txt>
-* <http://ww2.amstat.org/publications/jse/v19n3/decock.pdf>
+Pada artikel ini, kita akan membuat model prediktif pada dataset `Spotify`. `Spotify`  Merupakan dataset yang berisikan daftar lagu dan fitur audio dari band/penyanyi ternama dunia, antara lain: Queens, Maroon 5, dan Jason Mraz.
+
+Kolom-kolom pada dataset tersebut, antara lain:
+
+* `id` : nomor seri lagu
+*  `name` : judul lagu
+* `popularity` : tingkat popularitas lagu
+* `album.id` : nomor seri album
+* `album.name` : nama album
+* `album.total_tracks` : total lagu dalam album
+* `track_number` : nomor lagu dalam album
+* `duration_ms` : durasi lagu dalam satuan ms
+* `danceability` : elemen musik termasuk tempo, stabilitas ritme, kekuatan beat, dan keteraturan keseluruhan. Nilai 0,0 paling tidak bisa digunakan untuk menari dan 1,0 paling bisa digunakan untuk menari.
+* `energy` : Energi adalah ukuran dari 0,0 hingga 1,0 dan mewakili ukuran persepsi intensitas dan aktivitas. Biasanya, trek yang energik terasa cepat, keras, dan berisik. Sebagai contoh, death metal memiliki energi tinggi, sedangkan prelude Bach mendapat skor rendah pada skala. Fitur perseptual yang berkontribusi pada atribut ini meliputi rentang dinamis, persepsi kenyaringan, warna nada, onset rate, dan entropi umum.
+* `key` : Kunci dari trek adalah. Integer memetakan ke pitch menggunakan notasi Pitch Class standar. Misalnya. 0 = C, 1 = C♯ / D ♭, 2 = D, dan seterusnya.
+* `loudness` : Keseluruhan kenyaringan trek dalam desibel (dB). Nilai kenyaringan rata-rata di seluruh trek dan berguna untuk membandingkan kenyaringan relatif trek. Kenyaringan adalah kualitas suara yang merupakan korelasi psikologis utama dari kekuatan fisik (amplitudo). Nilai kisaran khas antara -60 dan 0 db.
+* `mode` : Mode menunjukkan modalitas (besar atau kecil) dari suatu trek, jenis skala dari mana konten melodinya diturunkan. Mayor diwakili oleh 1 dan minor adalah 0.
+* `speechiness` : Speechiness mendeteksi keberadaan kata-kata yang diucapkan di trek. Semakin eksklusif pidato-seperti rekaman (mis. Acara bincang-bincang, buku audio, puisi), semakin dekat dengan 1.0 nilai atribut. Nilai di atas 0,66 menggambarkan trek yang mungkin seluruhnya terbuat dari kata-kata yang diucapkan. Nilai antara 0,33 dan 0,66 menggambarkan trek yang mungkin berisi musik dan ucapan, baik dalam bagian atau lapisan, termasuk kasus-kasus seperti musik rap. Nilai di bawah 0,33 kemungkinan besar mewakili musik dan trek non-ucapan lainnya.
+* `acousticness` : Ukuran kepercayaan dari 0,0 hingga 1,0 dari apakah trek akustik. 1.0 mewakili kepercayaan tinggi trek adalah akustik.
+* `instrumentalness` : Memprediksi apakah suatu lagu tidak mengandung vokal. Suara “Ooh” dan “aah” diperlakukan sebagai instrumen dalam konteks ini. Rap atau trek kata yang diucapkan jelas "vokal". Semakin dekat nilai instrumentalness ke 1.0, semakin besar kemungkinan trek tidak mengandung konten vokal. Nilai di atas 0,5 dimaksudkan untuk mewakili trek instrumental, tetapi kepercayaan diri lebih tinggi ketika nilai mendekati 1.0.
+* `liveness` : Mendeteksi keberadaan audiens dalam rekaman. Nilai liveness yang lebih tinggi mewakili probabilitas yang meningkat bahwa trek dilakukan secara langsung. Nilai di atas 0,8 memberikan kemungkinan kuat bahwa trek live.
+* `valence` : Ukuran 0,0 hingga 1,0 yang menggambarkan kepositifan musik yang disampaikan oleh sebuah trek. Lagu dengan valensi tinggi terdengar lebih positif (mis. Bahagia, ceria, gembira), sedangkan trek dengan valensi rendah terdengar lebih negatif (mis. Sedih, tertekan, marah).
+* `tempo` : Perkiraan tempo trek secara keseluruhan dalam beat per menit (BPM). Dalam terminologi musik, tempo adalah kecepatan atau kecepatan dari bagian yang diberikan dan diturunkan langsung dari durasi beat rata-rata.
+* `time_signature` : An estimated overall time signature of a track. The time signature (meter) is a notational convention to specify how many beats are in each bar (or measure).
 
 # Persiapan {.tabset}
 
@@ -18,53 +43,65 @@ Sebuah dataset terkait data properti yang ada di Ames IA. Dataset ini memiliki 8
 
 Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif menggunakan *tree based algorithm*. Paket-paket ditampilkan sebagai berikut:
 
-```{r import-lib}
-library(rsample)
+```{r import-lib, cache=TRUE}
+# library pembantu
+library(DMwR)
+library(modeldata)
+library(MLmetrics)
 library(tidyverse)
+library(rsample)
 library(recipes)
-library(caret)
-library(AmesHousing)
-library(janitor)
 library(DataExplorer)
 library(skimr)
+library(magrittr)
+
+# library model
+library(caret)
+
+# paket penjelasan model
+library(vip)
+library(pdp)
 ```
 
-1. `rsample` : membantu proses *data splitting*
-2. `tidyverse` : kumpulan paket dalam bidang data science
-3. `recipes`: membantu proses data *preprocessing*
-4. `caret` : berisikan sejumlah fungsi yang dapat merampingkan proses pembuatan model regresi dan klasifikasi
-5. `AmesHousing` : berisikan dataset Ames
-6. `janitor` : memperbaiki format kolom
-7. `DataExplorer` : membantu EDA
-8. `skimr` : membuat ringkasan data
+**Paket Pembantu**
+
+3. `foreach` : paket untuk melakukan *parallel computing*. Diperlukan untuk melakukan *fitting* model *parallel random forest*
+4. `import` : paket yang menangani *dependency* fungsi antar paket dalam proses *fitting* model *parallel random forest*
+5. `tidyverse` : kumpulan paket dalam bidang data science
+6. `rsample` : membantu proses *data splitting*
+7. `recipes`: membantu proses data pra-pemrosesan
+8. `DataExplorer` : EDA
+9. `skimr` : membuat ringkasan data
+10. `DMwR` : paket untuk melakukan sampling "smote"
+11. `modeldata` : kumpulan dataset untuk membuat model *machine learning*
+
+**Paket untuk Membangun Model**
+
+1. `caret` : berisikan sejumlah fungsi yang dapat merampingkan proses pembuatan model regresi dan klasifikasi
+
+**Paket Interpretasi Model**
+
+2. `vip` : visualisasi *variable importance*
+3. `pdp` : visualisasi plot ketergantungan parsial
 
 ## Import Dataset
 
-Import dataset dilakukan dengan menggunakan fungsi `data()`. Fungsi ini digunakan untuk mengambil data yang ada dalam sebuah paket.
+Import dataset dilakukan dengan menggunakan fungsi `readr()`. Fungsi ini digunakan untuk membaca file dengan ekstensi `.csv`.
 
-```{r import-data}
-data("ames_raw")
-```
+```{r import-data, cache=TRUE}
+spotify <- read_csv("data/spotify.csv")
 
-Untuk melihat struktur datanya, jalankan sintaks berikut:
+# data cleaning
+key_labs = c('c', 'c#', 'd', 'd#', 'e', 'f', 
+             'f#', 'g', 'g#', 'a', 'a#', 'b')
+mode_labs = c('minor', 'major')
 
-```{r}
-glimpse(ames_raw)
-
-```
-
-Berdasarkan output yang dihasilkan, nama kolom pada dataset tersebut perlu dilakukan *cleaning* agar tidak mengandung koma.
-
-```{r}
-ames <- ames_raw %>%
-  janitor::clean_names() %>%
-  mutate(across(where(is.character), as.factor))
-```
-
-Untuk mengecek hasilnya jalankan kembali fungsi `glimpse()`.
-
-```{r}
-glimpse(ames)
+spotify <- spotify %>%
+  dplyr::select(popularity, duration_ms:artist) %>%
+  mutate(time_signature = factor(time_signature),
+         key = factor(key, labels = key_labs),
+         mode = factor(mode, labels = mode_labs),
+         artist = factor(artist, labels = c("Jason_Mraz", "Maroon_5", "Queen" )))
 ```
 
 
@@ -72,60 +109,32 @@ glimpse(ames)
 
 Proses *data splitting* dilakukan setelah data di import ke dalam sistem. Hal ini dilakukan untuk memastikan tidak adanya kebocoran data yang mempengaruhi proses pembuatan model. Data dipisah menjadi dua buah set, yaitu: *training* dan *test*. Data *training* adalah data yang akan kita gunakan untuk membentuk model. Seluruh proses sebelum uji model akan menggunakan data *training*. Proses tersebut, antara lain: EDA, *feature engineering*, dan validasi silang. Data *test* hanya digunakan saat kita akan menguji performa model dengan data baru yang belum pernah dilihat sebelumnya.
 
-Rekomendasi yang umum digunakan pada pemisahan data adalah 60% sampai dengan 80% data *training* dan sisanya adalah data *test*. Proporsi tersebut merupakan panduan umum dalam pemisahan data. Namun, beberapa hal perlu dipertimbangkan dalam menentukan proporsi pemisahan yang digunakan, antara lain:
-
-* Data *training* terlalu besar (misal: > 80%) tidak memungkinkan kita untuk membuat pengujian performa model prediktif dengan cukup baik. Kita mungkin akan membuat model yang cukup baik untuk data *training* kita, namun tidak dapat mengeneralisasi pola dalam data dengan cukup baik (*overfitting*)
-* Data *test* terlalu besar (misal: > 40%) tidak memungkinkan kita membuat pengujian yang baik terhadap parameter model (*underfitting*).
-
 Terdapat dua buah jenis sampling pada tahapan *data splitting*, yaitu:
 
-1. *simple random sampling* : sampling acak tanpa mempertimbangkan adanya strata dalam data
-2. *stratified random sampling* : sampling dengan memperhatikan strata dalam sebuah variabel.
+1. *random sampling* : sampling acak tanpa mempertimbangkan adanya strata dalam data
+2. *startified random sampling* : sampling dengan memperhatikan strata dalam sebuah variabel.
 
-Berikut ditampilkan dua buah macam pemisahan data tersebut.
+Dalam proses pembentukan model kali ini, kita akan menggunakan metode kedua dengan tujuan untuk memperoleh distribusi yang seragam dari variabel target (`artist`).
 
-**_Simple Random Sampling_**
-
-```{r data-split}
+```{r data-split, cache=TRUE}
 set.seed(123)
 
-split1  <- initial_split(ames, prop = 0.7)
-ames_train1  <- training(split1)
-ames_test1   <- testing(split1)
-```
-
-**_Stratified Random Sampling_**
-
-```{r data-split2}
-set.seed(123)
-
-split2  <- initial_split(ames, prop = 0.7, strata = "sale_price")
-ames_train2  <- training(split2)
-ames_test2   <- testing(split2)
+split  <- initial_split(spotify, prop = 0.8, strata = "artist")
+spotify_train  <- training(split)
+spotify_test   <- testing(split)
 ```
 
 Untuk mengecek distribusi dari kedua set data, kita dapat mevisualisasikan distribusi dari variabel target pada kedua set tersebut.
 
-```{r target-vis}
+```{r target-vis, cache=TRUE}
 # training set
-ames_train1 %>%
-  mutate(variant = "Simple") %>%
-  bind_rows({
-    ames_train2 %>%
-      mutate(variant = "Stratified")
-  }) %>%
-  ggplot(aes(x = sale_price, color = variant)) + 
-  geom_density() 
+ggplot(spotify_train, aes(x = artist)) + 
+  geom_bar() 
 # test set
-ames_test1 %>%
-  mutate(variant = "Simple") %>%
-  bind_rows({
-    ames_test2 %>%
-      mutate(variant = "Stratified")
-  }) %>%
-  ggplot(aes(x = sale_price, color = variant)) + 
-  geom_density() 
+ggplot(spotify_test, aes(x = artist)) + 
+  geom_bar() 
 ```
+
 
 # Analisis Data Eksploratif
 
@@ -138,74 +147,54 @@ Analsiis data eksploratif (EDA) ditujukan untuk mengenali data sebelum kita mene
 
 Terdapat dua buah fungsi yang digunakan dalam membuat ringkasan data, antara lain:
 
-1. `skim()` : fungsi dari paket `skimr` untuk membuat ringkasan data yang lebih detail dibanding `glimpse()`, seperti: statistika deskriptif masing-masing kolom, dan informasi *missing value* dari masing-masing kolom.
-2. `plot_missing()` : fungsi untuk memvisualisasikan persentase *missing value* pada masing-masing variabel atau kolom data
+1. `glimpse()`: varian dari `str()` untuk mengecek struktur data. Fungsi ini menampilkan transpose dari tabel data dengan menambahkan informasi, seperti: jenis data dan dimensi tabel.
+2. `skim()` : fungsi dari paket `skimr` untuk membuat ringkasan data yang lebih detail dibanding `glimpse()`, seperti: statistika deskriptif masing-masing kolom, dan informasi *missing value* dari masing-masing kolom.
+3. `plot_missing()` : fungsi untuk memvisualisasikan persentase *missing value* pada masing-masing variabel atau kolom data
 
-```{r}
-skim(ames_train2)
+
+```{r glimpse, cache=TRUE}
+glimpse(spotify_train)
 ```
 
-```{r}
-mv_vis <- plot_missing(ames_train2)
+```{r skim, cache=TRUE}
+skim(spotify_train)
 ```
 
-Pada dataset, terdapat 2053 baris dan 82 kolom. Pada data terdapat *missing value* pada sejumlah kolom dengan *rate* yang berbeda-beda. Terdapat beberapa pendekan yang dapat digunakan untuk menangani *missing value*, antara lain:
-
-1, **Membuang kolom atau baris data**. Membuang kolom data pada umumnya dilakukan jika *missing value* pada kolom tersebut > 50%-70%. Dalam hal ini kolom dengan rekomendasi `remove` berdasarkan visualisasi data yang dihasilkan. Membuang baris, dilakukan apabila.proprosi *missing value* cukup kecil (misal <10%) dan tidak mempengaruhi secara signifikan jumlah training data yang digunakan.
-2. **Imputasi**. Proses imputasi merupakan proses mengisi *missing value* dengan sejumlah pendekatan. Pendekatan yang digunakan, antara lain:
-
-* Nilai pusat (mis: mean, median, modus)
-* Hasil prediksi model (mis: knn, *tree-based model*)
-
-Perlu diperhatikan, pendekatan nilai pusat menghiraukan adanya pola yang terbentuk dalam data. Sebagai gambaran, perhatikan visualisasi di bawah ini yang membandingkan hasil imputasi menggunakan model maupun pendekatan nilai pusat.
-
-![Perbandingan tiga buah metode imputasi](https://bradleyboehmke.github.io/HOML/03-engineering_files/figure-html/engineering-imputation-examples-1.png)
-
-Variabel dengan proporsi *missing value* > 40%, antara lain:
-
-```{r}
-var_miss <-
-  mv_vis$data %>%
-  filter(pct_missing > 0.4) %>%
-  dplyr::select(feature) %>%
-  pull()
-
-var_miss
+```{r missing-vis, cache=TRUE}
+plot_missing(spotify_train)
 ```
 
+Berdasarkan ringkasan data yang dihasilkan, diketahui dimensi data sebesar 982 baris dan 15 kolom. Dengan rincian masing-masing kolom, yaitu: 4 kolom dengan jenis data factor dan 11 kolom dengan jenis data numeric. Informasi lain yang diketahui adalah seluruh kolom dalam data tidak memiliki *missing value*.
 
-## Varian
+## Variasi
 
-Untuk melihat varian masing-masing variabel, kita dapat mevisualisasikan data menggunakan histogram dan barplot.
+Variasi dari tiap variabel dapat divisualisasikan dengan menggunakan histogram (numerik) dan baplot (kategorikal).
 
-```{r}
-plot_histogram(ames_train2, ncol = 2L, nrow = 2L)
+```{r hist, cache=TRUE}
+plot_histogram(spotify_train, ncol = 2L, nrow = 2L)
 ```
 
-Berdasarkan hasil visualisasi histogram pada data numerik, sebagian besar data tidak berdistribusi normal atau tidak simestris.
-
-```{r}
-plot_bar(ames_train2, ncol=2L, nrow = 2L)
+```{r bar, cache=TRUE}
+plot_bar(spotify_train, ncol = 2L, nrow = 2L)
 ```
 
-Sejumlah kolom pada variabel kategorikal memiliki varian yang mendekati nol. Untuk mengetahui kolom dengan varian mendekati nol atau nol, jalankan sintaks berikut:
+Berdasarkan hasil visualisasi diperoleh bahwa sebagian besar variabel numerik memiliki distribusi yang tidak simetris. Sedangkan pada variabel kategorikal diketahui bahwa seluruh variabel memiliki variasi yang tidak mendekati nol atau nol. Untuk mengetahui variabel dengan variasi mendekati nol atau nol, dapat menggunakan sintaks berikut:
 
-```{r}
-caret::nearZeroVar(ames_train2, saveMetrics = TRUE) %>% 
-  tibble::rownames_to_column() %>% 
+```{r nzv, cache=TRUE}
+nzvar <- nearZeroVar(spotify_train, saveMetrics = TRUE) %>% 
+  rownames_to_column() %>% 
   filter(nzv)
+nzvar
 ```
-
-Setidaknya terdapat 19 kolom dengan varian mendekati nolo atau nol. Membuat variabel dengan varian mendekati nol akan menurunkan dimensi data.
 
 ## Kovarian
 
-Kovarian dapat divisualisasikan dengan menggunakan heatmap yang mengkode nilai koefisien korelasi berdasarkan warna.
+Kovarian dapat dicek melalui visualisasi *heatmap* koefisien korelasi.
 
-```{r}
-plot_correlation(ames_train2)
+```{r heatmap, cache=TRUE}
+plot_correlation(spotify_train, 
+                 cor_args = list(method = "spearman"))
 ```
-
 
 # Target and Feature Engineering
 
@@ -238,7 +227,7 @@ Sementara kebutuhan proyek kita mungkin beragam, berikut ini adalah urutan langk
 
 Untuk mengilustrasikan bagaimana proses ini bekerja bersama menggunakan R, mari kita lakukan penilaian ulang sederhana pada set data `ames` yang kita gunakan  dan lihat apakah beberapa *feature engineering* sederhana meningkatkan kemampuan prediksi model kita. Tapi pertama-tama, kita berkenalan dengat paket `recipe`.
 
-Paket `recipe` ini memungkinkan kita untuk mengembangkan *blueprint feature engineering* secara berurutan. Gagasan di balik `recipe` mirip dengan `caret :: preProcess()` di mana kita ingin membuat *blueprint preprocessing* tetapi menerapkannya nanti dan dalam setiap resample.
+Paket `recipe` ini memungkinkan kita untuk mengembangkan *bluprint feature engineering* secara berurutan. Gagasan di balik `recipe` mirip dengan `caret :: preProcess()` di mana kita ingin membuat *blueprint preprocessing* tetapi menerapkannya nanti dan dalam setiap resample.
 
 Ada tiga langkah utama dalam membuat dan menerapkan rekayasa fitur dengan `recipe`:
 
@@ -246,55 +235,179 @@ Ada tiga langkah utama dalam membuat dan menerapkan rekayasa fitur dengan `recip
 2. `prep()`: memperkirakan parameter *feature engineering* berdasarkan data *training*.
 3. `bake()`: terapkan *blueprint* untuk data baru.
 
-Langkah pertama adalah di mana kita menentukan *blueprint*. Dengan proses ini, Kita memberikan formula model yang ingin kita buat (variabel target, fitur, dan data yang menjadi dasarnya) dengan fungsi `recipe()` dan kemudian kita secara bertahap menambahkan langkah-langkah rekayasa fitur dengan fungsi `step_xxx()`. 
-
-*Blueprint* yang akan dilakukan dalam proses *feature engineering* berdasarkan hasil analisis data eksploratif, antara lain:
-
-1. Memfilter variabel kategorikal dengan varian mendekati nol
-2. Membuang variabel dengan *missing value* > 40% dan ID
-3. Melakukan imputasi menggunakan knn pada variabel dengan *missing value*
-4. Melakukan *categorical encoding* pada variabel kategorikal dengan kelas > 10
-5. Standardisasi data numerik
-6. Reduksi dimensi menggunakan pca
-7. *dummy encoding* pada data kategorikal
-
-```{r preprocess}
-
-blueprint <- recipe(sale_price ~., data = ames_train2) %>%
-  # feature filtering
-  step_nzv(all_nominal()) %>%
-  # remove feature
-  step_rm(var_miss, pid) %>%
-  # imputation
-  step_knnimpute(all_predictors(), neighbors = 6) %>%
-  # label encoding
-  step_integer(ms_sub_class, neighborhood, exterior_1st, exterior_2nd, sale_type) %>%
-  # standardization
+```{r}
+blueprint <- recipe(artist ~ ., data = spotify_train) %>%
+  step_nzv(all_nominal())  %>%
+  
+  # 2. imputation to missing value
+  # step_medianimpute("<Num_Var_name>") %>% # median imputation
+  # step_meanimpute("<Num_var_name>") %>% # mean imputation
+  # step_modeimpute("<Cat_var_name>") %>% # mode imputation
+  # step_bagimpute("<Var_name>") %>% # random forest imputation
+  # step_knnimpute("<Var_name>") %>% # knn imputation
+  
+  # Label encoding for categorical variable with many classes 
+  # step_integer("<Cat_var_name>") %>%
+  
+  # 3. normalize to resolve numeric feature skewness
   step_center(all_numeric(), -all_outcomes()) %>%
+  
+  # 4. standardize (center and scale) numeric feature
   step_scale(all_numeric(), -all_outcomes()) %>%
-  # feature extraction
-  step_pca(all_numeric(), -all_outcomes(), threshold = .7) %>%
-  # one hot/dummy encoding
-  step_dummy(all_nominal())
+  
+  # 5. dummy encoding
+  step_dummy(all_nominal(), -all_outcomes())
 
 blueprint
 ```
 
 Selanjutnya, *blueprint* yang telah dibuat dilakukan *training* pada data *training*. Perlu diperhatikan, kita tidak melakukan proses *training* pada data *test* untuk mencegah *data leakage*.
 
-```{r prep}
-prepare <- prep(blueprint, training = ames_train2)
+```{r prep, cache=TRUE}
+prepare <- prep(blueprint, training = spotify_train)
 prepare
 ```
 
 Langkah terakhir adalah mengaplikasikan *blueprint* pada data *training* dan *test* menggunakan fungsi `bake()`.
 
-```{r baked}
-baked_train <- bake(prepare, new_data = ames_train2)
-baked_test <- bake(prepare, new_data = ames_test2)
+```{r baked, cache=TRUE}
+baked_train <- bake(prepare, new_data = spotify_train)
+baked_test <- bake(prepare, new_data = spotify_test)
 baked_train
 ```
 
-```{r}
-skim(baked_train)
+
+# K-Nearest Neighbors
+
+K-nearest Neighbors (KNN) adalah algoritma yang sangat sederhana di mana setiap pengamatan diprediksi berdasarkan "kesamaan" dengan pengamatan lainnya. Tidak seperti kebanyakan metode lainnya, KNN adalah algoritma berbasis memori dan tidak dapat diringkas oleh model bentuk tertutup. Ini berarti sampel pelatihan diperlukan saat run-time dan prediksi dibuat langsung dari hubungan sampel. Akibatnya, KNN juga dikenal sebagai *lazy learners* (Cunningham dan Delany 2007) dan dapat menjadi tidak efisien secara komputasi. Namun, KNN telah berhasil dalam sejumlah besar masalah bisnis (Jiang et al. (2012) dan Mccord dan Chuah (2011)) dan berguna untuk tujuan preprocessing juga.
+
+## Validasi Silang dan Parameter Tuning
+
+Langkah pertama yang perlu dilakukan dalam melakukan kegiatan validasi silang adalah menentukan spesifikasi parameter validasi silang. Fungsi `trainControl()` merupakan fungsi yang dapat kita gunakan untu menetukan metode validasi silang yang dilakukan dan spesifikasi terkait metode validasi silang yang digunakan.
+
+```{r knn-cv, cache=TRUE}
+# spesifikasi metode validasi silang
+cv <- trainControl(
+  # possible value: "boot", "boot632", "optimism_boot", "boot_all", "cv", 
+  #                 "repeatedcv", "LOOCV", "LGOCV"
+  method = "cv", 
+  number = 10, 
+  # repeats = 5,
+  classProbs = TRUE,
+  sampling = "smote",
+  savePredictions = TRUE,
+  summaryFunction = multiClassSummary,
+  allowParallel = TRUE
+)
+```
+
+Selanjutnya spesifikasikan *hyperparameter* yang akan di *tuning*.
+
+```{r knn-hyper, cache=TRUE}
+## Construct grid of hyperparameter values
+hyper_grid <- expand.grid(k = seq(2, 30, by = 1))
+```
+
+Setelah parameter *tuning* dan validasi silang dispesifikasikan, proses training dilakukan menggunakan fungsi `train()`.
+
+```{r knn-fit, cache=TRUE}
+system.time(
+knn_fit_cv <- train(
+  blueprint, 
+  data = spotify_train, 
+  method = "knn", 
+  trControl = cv, 
+  tuneGrid = hyper_grid,
+  metric = "AUC"
+  )
+)
+
+knn_fit_cv
+```
+
+Proses *training* berlangsung selama 178.379 detik dengan 72 buah model yang terbentuk. Model terbaik dipilih berdasarkan nilai **AUC** terbesar. Berdasarkan kriteria tersebut model yang terpilih adalalah model yang memiliki nilai `k` = `r knn_fit_cv$bestTune %>% dplyr::select(k) %>% pull()`. Nilai **AUC** rata-rata model terbaik adalah sebagai berikut:
+
+
+```{r knn-roc, cache=TRUE}
+knn_roc <- knn_fit_cv$results %>%
+  arrange(-AUC) %>%
+  slice(1) %>%.[,"AUC"] 
+knn_roc
+```
+
+Berdasarkan hasil yang diperoleh, luas area dibawah kurva **ROC** sebesar `r knn_roc` Berdasarkan hasil tersebut, model klasifikasi yang terbentuk lebih baik dibanding menebak secara acak. 
+
+Visualisasi hubungan antar parameter  dan **ROC** ditampilkan pada gambar berikut:
+
+```{r knn-cv-vis, chace = TRUE}
+# visualisasi
+ggplot(knn_fit_cv)
+```
+
+
+## Model Akhir
+
+Model terbaik dari hasil proses validasi silang selanjutnya diekstrak. Hal ini berguna untuk mengurangi ukuran model yang tersimpan. Secara default fungsi `train()` akan mengembalikan model dengan performa terbaik. Namun, terdapat sejumlah komponen lain dalam objek yang terbentuk, seperti: hasil prediksi, ringkasan training, dll. yang membuat ukuran objek menjadi besar. Untuk menguranginya, kita perlu mengambil objek model final dari objek hasil validasi silang.
+
+```{r knn-final, cache=TRUE}
+knn_fit <- knn_fit_cv$finalModel
+```
+
+Ringkasan model final *KNN* ditampilkan menggunakan sintaks berikut: 
+
+```{r knn-vis, cache=TRUE}
+knn_fit
+```
+
+Model yang dihasilkan selanjutnya dapat kita uji lagi menggunakan data baru. Berikut adalah perhitungan nilai **Akurasi** model pada data *test*.
+
+```{r knn-cm-test, cache=TRUE}
+pred_test <- predict(knn_fit, {baked_test %>% 
+    dplyr::select(!artist)})
+
+pred_test <-
+  as.data.frame(pred_test) %>%
+  rowid_to_column("row") %>%
+  pivot_longer(cols = Jason_Mraz:Queen, names_to = "artist", values_to = "prob") %>%
+  group_by(row) %>%
+  summarise(prediction = which.max(prob)) %>%
+  mutate(prediction = factor(prediction, 
+                             labels = c("Jason_Mraz", "Maroon_5", "Queen" ))) %>%
+  dplyr::select(prediction) %>%
+  pull()
+
+## RMSE
+cm <- confusionMatrix(pred_test, baked_test$artist)
+cm
+```
+
+Berdasarkan hasil evaluasi diperoleh nilai akurasi sebesar `r cm$overall[1]`
+
+
+## Interpretasi Fitur
+
+Untuk mengetahui variabel yang paling berpengaruh secara global terhadap hasil prediksi model, kita dapat menggunakan plot *variable importance*.
+
+```{r knn-vip, cache=TRUE}
+vi <- varImp(knn_fit_cv, num_features = 10) %>% ggplot()
+vi
+```
+
+Berdasarkan terdapat 4 buah variabel yang berpengaruh besar terhadap prediksi yang dihasilkan oleh model, antara lain: `r as.character(vi$data[1:4, 3])`. Untuk melihat efek dari masing-masing variabel terhadap variabel respon, kita dapat menggunakan *partial dependence plot*.
+
+```{r knn-pdp, cache=TRUE}
+p1 <- pdp::partial(knn_fit_cv, pred.var = as.character(vi$data[1, 3])) %>% 
+  autoplot() 
+
+p2 <- pdp::partial(knn_fit_cv, pred.var = as.character(vi$data[2, 3])) %>% 
+  autoplot()
+
+p3 <- pdp::partial(knn_fit_cv, pred.var = as.character(vi$data[3, 3])) %>% 
+  autoplot()
+  
+
+p4 <- pdp::partial(knn_fit_cv, pred.var = as.character(vi$data[4, 3])) %>% 
+  autoplot()
+
+grid.arrange(p1, p2, p3, p4, nrow = 2)
 ```

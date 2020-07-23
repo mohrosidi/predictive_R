@@ -1,5 +1,5 @@
 ---
-title: "Naive Bayes Classification"
+title: "K-Nearest Neighbors"
 author: "Moh. Rosidi"
 date: "7/23/2020"
 output:
@@ -70,7 +70,6 @@ library(MLmetrics)
 
 # library model
 library(caret)
-library(klaR)
 
 # paket penjelasan model
 library(vip)
@@ -92,7 +91,6 @@ library(pdp)
 **Paket untuk Membangun Model**
 
 1. `caret` : berisikan sejumlah fungsi yang dapat merampingkan proses pembuatan model regresi dan klasifikasi
-2. `klaR` : untuk membangun model naive bayes
 
 **Paket Interpretasi Model**
 
@@ -268,7 +266,12 @@ blueprint <- recipe(artist ~ ., data = spotify_train) %>%
   step_center(all_numeric(), -all_outcomes()) %>%
   
   # 4. standardize (center and scale) numeric feature
-  step_scale(all_numeric(), -all_outcomes()) 
+  step_scale(all_numeric(), -all_outcomes()) %>%
+  
+  # 5. dummy encoding
+  step_dummy(all_nominal(), -all_outcomes())
+
+blueprint
 ```
 
 Selanjutnya, *blueprint* yang telah dibuat dilakukan *training* pada data *training*. Perlu diperhatikan, kita tidak melakukan proses *training* pada data *test* untuk mencegah *data leakage*.
@@ -287,28 +290,15 @@ baked_train
 ```
 
 
-# Naive Bayes
+# K-Nearest Neighbors
 
-Klasifikasi Bayes naif didasarkan pada probabilitas Bayesian, yang berasal dari [Reverend Thomas Bayes](https://en.wikipedia.org/wiki/Thomas_Bayes). Probabilitas Bayesian menggabungkan konsep probabilitas kondisional, probabilitas peristiwa A mengingat bahwa peristiwa B telah terjadi [dilambangkan sebagai $P(A \vert B)$. 
-
-Teorema bayes dapat dituliskan sebagai berikut:
-
-$$
-P(C_k \vert X) = \frac{P(C_k) \cdot P(X \vert C_k)}{P(X)} \tag{1}
-$$
-
-dimana:
-
-* $P(C_k)$ merupakan probabilitas *prior* output
-* $P(X)$  merupakan probabilitas prediktor
-* $P(X \vert C_k)$ merupakan probabilitas bersyarat atau kemungkinan
-* $P(C_k \vert X)$ probabilitas posterior.
+K-nearest Neighbors (KNN) adalah algoritma yang sangat sederhana di mana setiap pengamatan diprediksi berdasarkan "kesamaan" dengan pengamatan lainnya. Tidak seperti kebanyakan metode lainnya, KNN adalah algoritma berbasis memori dan tidak dapat diringkas oleh model bentuk tertutup. Ini berarti sampel pelatihan diperlukan saat run-time dan prediksi dibuat langsung dari hubungan sampel. Akibatnya, KNN juga dikenal sebagai *lazy learners* (Cunningham dan Delany 2007) dan dapat menjadi tidak efisien secara komputasi. Namun, KNN telah berhasil dalam sejumlah besar masalah bisnis (Jiang et al. (2012) dan Mccord dan Chuah (2011)) dan berguna untuk tujuan preprocessing juga.
 
 ## Validasi Silang dan Parameter Tuning
 
 Langkah pertama yang perlu dilakukan dalam melakukan kegiatan validasi silang adalah menentukan spesifikasi parameter validasi silang. Fungsi `trainControl()` merupakan fungsi yang dapat kita gunakan untu menetukan metode validasi silang yang dilakukan dan spesifikasi terkait metode validasi silang yang digunakan.
 
-```{r nv-cv, cache=TRUE}
+```{r knn-cv, cache=TRUE}
 # spesifikasi metode validasi silang
 cv <- trainControl(
   # possible value: "boot", "boot632", "optimism_boot", "boot_all", "cv", 
@@ -317,6 +307,7 @@ cv <- trainControl(
   number = 10, 
   # repeats = 5,
   classProbs = TRUE,
+  sampling = "smote",
   savePredictions = TRUE,
   summaryFunction = multiClassSummary,
   allowParallel = TRUE
@@ -325,57 +316,45 @@ cv <- trainControl(
 
 Selanjutnya spesifikasikan *hyperparameter* yang akan di *tuning*.
 
-```{r nv-hyper, cache=TRUE}
+```{r knn-hyper, cache=TRUE}
 ## Construct grid of hyperparameter values
-hyper_grid <- expand.grid(
-  # kernel density estimate for continous variables vs gaussian density estimate
-  usekernel = c(TRUE, FALSE),
-  # incorporate the Laplace smoother.
-  fL = 0:5,
-  # djust the bandwidth of the kernel density (larger numbers mean more flexible density estimate)
-  adjust = seq(0, 5, by = 1)
-)
+hyper_grid <- expand.grid(k = seq(2, 30, by = 1))
 ```
 
 Setelah parameter *tuning* dan validasi silang dispesifikasikan, proses training dilakukan menggunakan fungsi `train()`.
 
-```{r nb-fit, cache=TRUE}
+```{r knn-fit, cache=TRUE}
 system.time(
-nb_fit_cv <- train(
-  blueprint,
-  data = spotify_train,
-  method = "nb",
-  trControl = cv,
-  tuneGrid =  hyper_grid,
+knn_fit_cv <- train(
+  blueprint, 
+  data = spotify_train, 
+  method = "knn", 
+  trControl = cv, 
+  tuneGrid = hyper_grid,
   metric = "AUC"
   )
 )
 
-nb_fit_cv
+knn_fit_cv
 ```
 
-```{r}
-nb_fit_cv$bestTune
-```
+Proses *training* berlangsung selama 178.379 detik dengan 72 buah model yang terbentuk. Model terbaik dipilih berdasarkan nilai **AUC** terbesar. Berdasarkan kriteria tersebut model yang terpilih adalalah model yang memiliki nilai `k` = `r knn_fit_cv$bestTune %>% dplyr::select(k) %>% pull()`. Nilai **AUC** rata-rata model terbaik adalah sebagai berikut:
 
 
-Proses *training* berlangsung selama 178.379 detik dengan 72 buah model yang terbentuk. Model terbaik dipilih berdasarkan nilai **AUC** terbesar. Berdasarkan kriteria tersebut model yang terpilih adalalah model yang memiliki nilai `ft` = `r nb_fit_cv$bestTune %>% dplyr::select(fl) %>% pull()`, `usekernel` = `r r nb_fit_cv$bestTune %>% dplyr::select(usekernel) %>% pull()` dan `adjust` = `r nb_fit_cv$bestTune %>% dplyr::select(adjust) %>% pull()`. Nilai **AUC** rata-rata model terbaik adalah sebagai berikut:
-
-
-```{r nb-roc, cache=TRUE}
-nb_roc <- nb_fit_cv$results %>%
+```{r knn-roc, cache=TRUE}
+knn_roc <- knn_fit_cv$results %>%
   arrange(-AUC) %>%
   slice(1) %>%.[,"AUC"] 
-nb_roc
+knn_roc
 ```
 
-Berdasarkan hasil yang diperoleh, luas area dibawah kurva **ROC** sebesar `r nb_roc` Berdasarkan hasil tersebut, model klasifikasi yang terbentuk lebih baik dibanding menebak secara acak. 
+Berdasarkan hasil yang diperoleh, luas area dibawah kurva **ROC** sebesar `r knn_roc` Berdasarkan hasil tersebut, model klasifikasi yang terbentuk lebih baik dibanding menebak secara acak. 
 
 Visualisasi hubungan antar parameter  dan **ROC** ditampilkan pada gambar berikut:
 
-```{r nb-cv-vis, chace = TRUE}
+```{r knn-cv-vis, chace = TRUE}
 # visualisasi
-ggplot(nb_fit_cv)
+ggplot(knn_fit_cv)
 ```
 
 
@@ -383,22 +362,32 @@ ggplot(nb_fit_cv)
 
 Model terbaik dari hasil proses validasi silang selanjutnya diekstrak. Hal ini berguna untuk mengurangi ukuran model yang tersimpan. Secara default fungsi `train()` akan mengembalikan model dengan performa terbaik. Namun, terdapat sejumlah komponen lain dalam objek yang terbentuk, seperti: hasil prediksi, ringkasan training, dll. yang membuat ukuran objek menjadi besar. Untuk menguranginya, kita perlu mengambil objek model final dari objek hasil validasi silang.
 
-```{r nb-final, cache=TRUE}
-nb_fit <- nb_fit_cv$finalModel
+```{r knn-final, cache=TRUE}
+knn_fit <- knn_fit_cv$finalModel
 ```
 
-Visualisasi model final *naive bayes*, dilakukan menggunakan fungsi `plot()`. 
+Ringkasan model final *KNN* ditampilkan menggunakan sintaks berikut: 
 
-```{r nb-vis, cache=TRUE}
-# visualisasi
-plot(nb_fit)
+```{r knn-vis, cache=TRUE}
+knn_fit
 ```
 
 Model yang dihasilkan selanjutnya dapat kita uji lagi menggunakan data baru. Berikut adalah perhitungan nilai **Akurasi** model pada data *test*.
 
-```{r nb-cm-test, cache=TRUE}
-# prediksi Attrition churn_test
-pred_test <- predict(nb_fit, baked_test, type = "class")$class
+```{r knn-cm-test, cache=TRUE}
+pred_test <- predict(knn_fit, {baked_test %>% 
+    dplyr::select(!artist)})
+
+pred_test <-
+  as.data.frame(pred_test) %>%
+  rowid_to_column("row") %>%
+  pivot_longer(cols = Jason_Mraz:Queen, names_to = "artist", values_to = "prob") %>%
+  group_by(row) %>%
+  summarise(prediction = which.max(prob)) %>%
+  mutate(prediction = factor(prediction, 
+                             labels = c("Jason_Mraz", "Maroon_5", "Queen" ))) %>%
+  dplyr::select(prediction) %>%
+  pull()
 
 ## RMSE
 cm <- confusionMatrix(pred_test, baked_test$artist)
@@ -412,25 +401,25 @@ Berdasarkan hasil evaluasi diperoleh nilai akurasi sebesar `r cm$overall[1]`
 
 Untuk mengetahui variabel yang paling berpengaruh secara global terhadap hasil prediksi model, kita dapat menggunakan plot *variable importance*.
 
-```{r nb-vip, cache=TRUE}
-vi <- varImp(nb_fit_cv, num_features = 10) %>% ggplot()
+```{r knn-vip, cache=TRUE}
+vi <- varImp(knn_fit_cv, num_features = 10) %>% ggplot()
 vi
 ```
 
 Berdasarkan terdapat 4 buah variabel yang berpengaruh besar terhadap prediksi yang dihasilkan oleh model, antara lain: `r as.character(vi$data[1:4, 3])`. Untuk melihat efek dari masing-masing variabel terhadap variabel respon, kita dapat menggunakan *partial dependence plot*.
 
-```{r nb-pdp, cache=TRUE}
-p1 <- pdp::partial(nb_fit_cv, pred.var = as.character(vi$data[1, 3])) %>% 
+```{r knn-pdp, cache=TRUE}
+p1 <- pdp::partial(knn_fit_cv, pred.var = as.character(vi$data[1, 3])) %>% 
   autoplot() 
 
-p2 <- pdp::partial(nb_fit_cv, pred.var = as.character(vi$data[2, 3])) %>% 
+p2 <- pdp::partial(knn_fit_cv, pred.var = as.character(vi$data[2, 3])) %>% 
   autoplot()
 
-p3 <- pdp::partial(nb_fit_cv, pred.var = as.character(vi$data[3, 3])) %>% 
+p3 <- pdp::partial(knn_fit_cv, pred.var = as.character(vi$data[3, 3])) %>% 
   autoplot()
   
 
-p4 <- pdp::partial(nb_fit_cv, pred.var = as.character(vi$data[4, 3])) %>% 
+p4 <- pdp::partial(knn_fit_cv, pred.var = as.character(vi$data[4, 3])) %>% 
   autoplot()
 
 grid.arrange(p1, p2, p3, p4, nrow = 2)
