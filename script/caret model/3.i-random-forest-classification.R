@@ -29,7 +29,7 @@ churn <- attrition
 
 # 3. Data Splitting ----
 set.seed(123)
-split <- initial_split(churn, prop = 0.7, 
+split <- initial_split(churn, prop = 0.8, 
                        strata = "Attrition")
 churn_train  <- training(split)
 churn_test   <- testing(split)
