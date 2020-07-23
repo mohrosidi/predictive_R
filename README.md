@@ -2,6 +2,11 @@
 
 Repository ini berisi kode sumber dari worshop **Predictive Analytics with R**. Selain itu, repository ini juga berisi dokumentasi proses pembuatan model prediksi menggunakan paket `Caret`.
 
+## Dokumentasi Data Preparation
+
+1. [Data Splitting](https://github.com/mohrosidi/predictive_R/blob/master/feature-engineering.md#data-splitting)
+2. [Target and Feature Engineering](https://github.com/mohrosidi/predictive_R/blob/master/feature-engineering.md#target-and-feature-engineering)
+
 ## Dokumentasi Regresi
 
 1. [Regresi Linier]()
