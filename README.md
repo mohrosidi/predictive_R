@@ -24,7 +24,7 @@ Repository ini berisi kode sumber dari worshop **Predictive Analytics with R**. 
 ## Dokumentasi Klasifikasi
 
 1. [Logistic Regression]()
-2. [KNN]()
+2. [KNN](https://github.com/mohrosidi/predictive_R/blob/master/knn-classification.md)
 3. [Naive Bayes](https://github.com/mohrosidi/predictive_R/blob/master/naive-bayes-classifier.md)
 4. [Decision Trees](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-classification.md#decision-tree-model)
 5. [Bagging](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-classification.md#bagging)
