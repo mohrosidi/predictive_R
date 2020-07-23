@@ -4,8 +4,6 @@ Repository ini berisi kode sumber dari worshop **Predictive Analytics with R**. 
 
 ## Dokumentasi Regresi
 
-1. [Pengenalan Data, Data Spliting, dan EDA](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#dataset-ames)
-2. [Feature Engineering](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#target-and-feature-engineering)
 3. [Regresi Linier]()
 4. [Principle Component Regression]()
 5. [Partial Least Square]()
@@ -20,14 +18,12 @@ Repository ini berisi kode sumber dari worshop **Predictive Analytics with R**. 
 
 ## Dokumentasi Klasifikasi
 
-1. [Pengenalan Data, Data Spliting, dan EDA](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#dataset-ames)
-2. [Feature Engineering](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#target-and-feature-engineering)
 1. [Logistic Regression]()
 2. [KNN]()
 3. [Naive Bayes]()
-4. [Decision Trees]()
-5. [Bagging]()
-6. [Random Forest]()
+4. [Decision Trees](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-classification.md#decision-tree-model)
+5. [Bagging](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-classification.md#bagging)
+6. [Random Forest](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-classification.md#random-forest)
 7. [Gradient Boosting Model]()
 8. [Support Vector Machines]()
 
