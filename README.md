@@ -4,17 +4,17 @@ Repository ini berisi kode sumber dari worshop **Predictive Analytics with R**. 
 
 ## Dokumentasi Regresi
 
-3. [Regresi Linier]()
-4. [Principle Component Regression]()
-5. [Partial Least Square]()
-6. [Regularized Regression]()
-7. [Multivariate Adaptive Regression Splines]()
-8. [KNN]()
-9. [Decision Trees](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#decision-tree-model)
-10. [Bagging](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#bagging)
-11. [Random Forest](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#random-forest)
-12. [Gradient Boosting Model](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#random-forest)
-13. [Support Vector Machines]()
+1. [Regresi Linier]()
+2. [Principle Component Regression]()
+3. [Partial Least Square]()
+4. [Regularized Regression]()
+5. [Multivariate Adaptive Regression Splines]()
+6. [KNN]()
+7. [Decision Trees](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#decision-tree-model)
+8. [Bagging](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#bagging)
+9. [Random Forest](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#random-forest)
+10. [Gradient Boosting Model](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#random-forest)
+11. [Support Vector Machines]()
 
 ## Dokumentasi Klasifikasi
 
