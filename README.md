@@ -13,7 +13,7 @@ Repository ini berisi kode sumber dari worshop **Predictive Analytics with R**. 
 7. [Decision Trees](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#decision-tree-model)
 8. [Bagging](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#bagging)
 9. [Random Forest](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#random-forest)
-10. [Gradient Boosting Model](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#random-forest)
+10. [Gradient Boosting Model](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#boosting)
 11. [Support Vector Machines]()
 
 ## Dokumentasi Klasifikasi

@@ -2,7 +2,21 @@
 title: "Data Spliting dan Feature Engineering"
 author: "Moh. Rosidi"
 date: "7/23/2020"
-output: github_document
+output:
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+    df_print: paged
+    theme: yeti
+    highlight: textmate
+    css: assets/style.css
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+    latex_engine: xelatex
 ---
 
 # Dataset Ames
@@ -96,7 +110,7 @@ ames_test1   <- testing(split1)
 
 **_Stratified Random Sampling_**
 
-```{r data-split2}
+```{r data-split}
 set.seed(123)
 
 split2  <- initial_split(ames, prop = 0.7, strata = "sale_price")
