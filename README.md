@@ -9,7 +9,7 @@ Repository ini berisi kode sumber dari worshop **Predictive Analytics with R**. 
 
 ## Dokumentasi Regresi
 
-1. [Regresi Linier](https://github.com/mohrosidi/predictive_R/blob/master/lm-regression.md#regresi-linier)
+1. [Regresi Linier](https://github.com/mohrosidi/predictive_R/blob/master/lm-regression.md#regresi-linier) 
 2. [Principle Component Regression](https://github.com/mohrosidi/predictive_R/blob/master/pc-regression.md#principle-component-regression)
 3. [Partial Least Square](https://github.com/mohrosidi/predictive_R/blob/master/pl-regression.md#partial-least-square-regression)
 4. [Regularized Regression](https://github.com/mohrosidi/predictive_R/blob/master/regularized-regression.md#regularized-regression)
@@ -19,16 +19,16 @@ Repository ini berisi kode sumber dari worshop **Predictive Analytics with R**. 
 8. [Bagging](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#bagging)
 9. [Random Forest](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#random-forest)
 10. [Gradient Boosting Model](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#boosting)
-11. [Support Vector Machines]()
+11. [Support Vector Machines]() `in progress`
 
 ## Dokumentasi Klasifikasi
 
-1. [Logistic Regression]()
+1. [Logistic Regression]() `in progress`
 2. [KNN](https://github.com/mohrosidi/predictive_R/blob/master/knn-classification.md)
 3. [Naive Bayes](https://github.com/mohrosidi/predictive_R/blob/master/naive-bayes-classifier.md)
 4. [Decision Trees](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-classification.md#decision-tree-model)
 5. [Bagging](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-classification.md#bagging)
 6. [Random Forest](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-classification.md#random-forest)
-7. [Gradient Boosting Model]()
-8. [Support Vector Machines]()
+7. [Gradient Boosting Model]() `in progress`
+8. [Support Vector Machines]() `in progress`
 
