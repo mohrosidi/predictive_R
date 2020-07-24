@@ -12,7 +12,7 @@ Repository ini berisi kode sumber dari worshop **Predictive Analytics with R**. 
 1. [Regresi Linier]()
 2. [Principle Component Regression]()
 3. [Partial Least Square]()
-4. [Regularized Regression](https://github.com/mohrosidi/predictive_R/blob/master/regularized-regression.md)
+4. [Regularized Regression](https://github.com/mohrosidi/predictive_R/blob/master/regularized-regression.md#regularized-regression)
 5. [Multivariate Adaptive Regression Splines](https://github.com/mohrosidi/predictive_R/blob/master/mars-regression.md)
 6. [KNN](https://github.com/mohrosidi/predictive_R/blob/master/knn-regression.md)
 7. [Decision Trees](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#decision-tree-model)
