@@ -1,4 +1,4 @@
-Principle Component Regression
+Partial Least Square Regression
 ================
 Moh. Rosidi
 7/24/2020
@@ -853,16 +853,19 @@ Data summary
 | Latitude             |          0 |              1 |      0.0 |     1.0 |   \-2.61 |    \-0.67 |   1.0e-02 |      0.83 |      1.58 | ▂▂▇▇▇ |
 | Sale\_Price          |          0 |              1 | 180996.3 | 80258.9 | 13100.00 | 129500.00 |   1.6e+05 | 213500.00 | 755000.00 | ▇▇▁▁▁ |
 
-# Principal Components Regression
+# Partial Least Square Regression
 
-Analisis komponen utama dapat digunakan untuk mewakili variabel
-berkorelasi dengan sejumlah kecil fitur tidak berkorelasi (disebut
-komponen prinsip) dan komponen yang dihasilkan dapat digunakan sebagai
-prediktor dalam model regresi linier. Proses dua langkah ini dikenal
-sebagai *Principal Components Regression* (PCR) (Massy 1965) dan
-diilustrasikan dalam gambar di bawah ini.
+Partial least square (PLS) dapat dilihat sebagai prosedur reduksi
+dimensi secara *supervised* (Kuhn dan Johnson 2013). Mirip dengan PCR,
+teknik ini juga membangun satu set kombinasi linear dari input untuk
+regresi, tetapi tidak seperti PCR, PLS yang menggunakan variabel respon
+untuk membantu pembangunan komponen utama seperti diilustrasikan pada
+gambar di bawah. Dengan demikian, kita dapat menganggap PLS sebagai
+prosedur pengurangan dimensi yang diawasi yang menemukan fitur baru yang
+tidak hanya menangkap sebagian besar informasi dalam fitur asli, tetapi
+juga terkait dengan respons.
 
-![](https://bradleyboehmke.github.io/HOML/images/pcr-steps.png)
+![](https://bradleyboehmke.github.io/HOML/images/pls-vs-pcr.png)
 
 ## Validasi Silang dan Parameter Tuning
 
@@ -889,10 +892,10 @@ training dilakukan menggunakan fungsi `train()`.
 
 ``` r
 system.time(
-pc_fit_cv <- train(
+pls_fit_cv <- train(
   blueprint, 
   data = ames_train, 
-  method = "pcr", 
+  method = "pls", 
   trControl = cv, 
   metric = "RMSE"
   )
@@ -900,13 +903,13 @@ pc_fit_cv <- train(
 ```
 
     ##    user  system elapsed 
-    ##   6.304   0.048   6.377
+    ##   5.857   0.067   5.952
 
 ``` r
-pc_fit_cv
+pls_fit_cv
 ```
 
-    ## Principal Component Analysis 
+    ## Partial Least Squares 
     ## 
     ## 2053 samples
     ##   73 predictor
@@ -917,9 +920,9 @@ pc_fit_cv
     ## Resampling results across tuning parameters:
     ## 
     ##   ncomp  RMSE      Rsquared   MAE     
-    ##   1      41276.93  0.7380228  28747.61
-    ##   2      41017.59  0.7408664  28937.02
-    ##   3      41013.40  0.7409793  28915.18
+    ##   1      38645.44  0.7705851  26958.18
+    ##   2      34085.27  0.8223980  23584.28
+    ##   3      32671.61  0.8372443  22472.29
     ## 
     ## RMSE was used to select the optimal model using the smallest value.
     ## The final value used for the model was ncomp = 3.
@@ -930,25 +933,25 @@ yang terpilih adalalah model yang memiliki nilai `ncomp` = 3. Nilai
 **RMSE** rata-rata model terbaik adalah sebagai berikut:
 
 ``` r
-pc_rmse <- pc_fit_cv$results %>%
+pls_rmse <- pls_fit_cv$results %>%
   arrange(RMSE) %>%
   slice(1) %>%
   select(RMSE) %>%
   pull()
-pc_rmse
+pls_rmse
 ```
 
-    ## [1] 41013.4
+    ## [1] 32671.61
 
 Berdasarkan hasil yang diperoleh, nilai **RMSE** rata-rata model sebesar
-4.101339910^{4}.
+3.267161110^{4}.
 
 Visualisasi hubungan antar parameter dan **RMSE** ditampilkan pada
 gambar berikut:
 
 ``` r
 # visualisasi
-ggplot(pc_fit_cv)
+ggplot(pls_fit_cv)
 ```
 
 ![](temp_files/figure-gfm/pc-cv-vis-1.png)<!-- -->
@@ -964,48 +967,48 @@ membuat ukuran objek menjadi besar. Untuk menguranginya, kita perlu
 mengambil objek model final dari objek hasil validasi silang.
 
 ``` r
-pc_fit <- pc_fit_cv$finalModel
+pls_fit <- pls_fit_cv$finalModel
 ```
 
 Untuk melihat performa sebuah model regresi adalah dengan melihat
 visualisasi nilai residunya. Berikut adalah sintaks yang digunakan:
 
 ``` r
-plot(pc_fit)
+plot(pls_fit)
 ```
 
-![](temp_files/figure-gfm/pc-res-vis-1.png)<!-- -->
+![](temp_files/figure-gfm/pls-res-vis-1.png)<!-- -->
 
 Ringkasan model ditampilkan sebagai berikut:
 
 ``` r
-summary(pc_fit)
+summary(pls_fit)
 ```
 
     ## Data:    X dimension: 2053 97 
     ##  Y dimension: 2053 1
-    ## Fit method: svdpc
+    ## Fit method: oscorespls
     ## Number of components considered: 3
     ## TRAINING: % variance explained
     ##           1 comps  2 comps  3 comps
-    ## X           14.00    21.47    26.98
-    ## .outcome    73.43    73.90    73.92
+    ## X           13.94    17.75    22.71
+    ## .outcome    76.94    82.96    84.64
 
 Model yang dihasilkan selanjutnya dapat kita uji lagi menggunakan data
 baru. Berikut adalah perhitungan nilai **RMSE** model pada data *test*.
 
 ``` r
-pred_test <- predict(pc_fit, baked_test)
+pred_test <- predict(pls_fit, baked_test)
 
 ## RMSE
 rmse <- RMSE(pred_test, baked_test$Sale_Price, na.rm = TRUE)
 rmse
 ```
 
-    ## [1] 42838.84
+    ## [1] 42014.4
 
 Berdasarkan hasil evaluasi diperoleh nilai akurasi sebesar
-4.283883910^{4}
+4.201439910^{4}
 
 ## Interpretasi Fitur
 
@@ -1013,32 +1016,32 @@ Untuk mengetahui variabel yang paling berpengaruh secara global terhadap
 hasil prediksi model, kita dapat menggunakan plot *variable importance*.
 
 ``` r
-vi <- vip(pc_fit_cv, num_features = 10)
+vi <- vip(pls_fit_cv, num_features = 10)
 vi
 ```
 
-![](temp_files/figure-gfm/pc-vip-1.png)<!-- -->
+![](temp_files/figure-gfm/pls-vip-1.png)<!-- -->
 
 Berdasarkan terdapat 4 buah variabel yang berpengaruh besar terhadap
 prediksi yang dihasilkan oleh model, antara lain: Gr\_Liv\_Area,
-Total\_Bsmt\_SF, First\_Flr\_SF, Garage\_Area. Untuk melihat efek
+Total\_Bsmt\_SF, First\_Flr\_SF, Garage\_Cars. Untuk melihat efek
 masing-masing variabel tersebut, jalankan perintah berikut:
 
 ``` r
-p1 <- pdp::partial(pc_fit_cv, pred.var = as.character(vi$data[1,1] %>% pull())) %>% 
+p1 <- pdp::partial(pls_fit_cv, pred.var = as.character(vi$data[1,1] %>% pull())) %>% 
   autoplot() 
 
-p2 <- pdp::partial(pc_fit_cv, pred.var = as.character(vi$data[2,1] %>% pull())) %>% 
+p2 <- pdp::partial(pls_fit_cv, pred.var = as.character(vi$data[2,1] %>% pull())) %>% 
   autoplot()
 
-p3 <- pdp::partial(pc_fit_cv, pred.var = as.character(vi$data[3,1] %>% pull())) %>% 
+p3 <- pdp::partial(pls_fit_cv, pred.var = as.character(vi$data[3,1] %>% pull())) %>% 
   autoplot()
   
 
-p4 <- pdp::partial(pc_fit_cv, pred.var = as.character(vi$data[4,1] %>% pull())) %>% 
+p4 <- pdp::partial(pls_fit_cv, pred.var = as.character(vi$data[4,1] %>% pull())) %>% 
   autoplot()
 
 grid.arrange(p1, p2, p3, p4, nrow = 2)
 ```
 
-![](temp_files/figure-gfm/pc-pdp-1.png)<!-- -->
+![](temp_files/figure-gfm/pls-pdp-1.png)<!-- -->
