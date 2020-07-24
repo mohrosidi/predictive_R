@@ -318,7 +318,7 @@ Proses *training* berlangsung selama 16.579 detik. Model terbaik dipilih berdasa
 
 
 ```{r pls-rmse}
-pls_rmse <- pc_fit_cv$results %>%
+pls_rmse <- pls_fit_cv$results %>%
   arrange(RMSE) %>%
   slice(1) %>%
   select(RMSE) %>%
