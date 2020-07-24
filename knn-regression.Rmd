@@ -2,7 +2,21 @@
 title: "K-Nearest Neigbors"
 author: "Moh. Rosidi"
 date: "7/24/2020"
-output: github_document
+output: 
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+    df_print: paged
+    theme: yeti
+    highlight: textmate
+    css: assets/style.css
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+    latex_engine: xelatex
 ---
 
 ```{r setup, include=FALSE}
