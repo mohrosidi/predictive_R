@@ -9,7 +9,7 @@ Repository ini berisi kode sumber dari worshop **Predictive Analytics with R**. 
 
 ## Dokumentasi Regresi
 
-1. [Regresi Linier]()
+1. [Regresi Linier](https://github.com/mohrosidi/predictive_R/blob/master/lm-regression.md#regresi-linier)
 2. [Principle Component Regression](https://github.com/mohrosidi/predictive_R/blob/master/pc-regression.md#principle-component-regression)
 3. [Partial Least Square](https://github.com/mohrosidi/predictive_R/blob/master/pl-regression.md#partial-least-square-regression)
 4. [Regularized Regression](https://github.com/mohrosidi/predictive_R/blob/master/regularized-regression.md#regularized-regression)
