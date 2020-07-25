@@ -21,7 +21,18 @@ Repository ini berisi kode sumber dari worshop **Predictive Analytics with R**. 
 10. [Gradient Boosting Model](https://github.com/mohrosidi/predictive_R/blob/master/tree-based-regression.md#boosting)
 11. [Support Vector Machines]() `in progress`
 
-## Dokumentasi Klasifikasi
+## Dokumentasi Klasifikasi Biner
+
+1. [Logistic Regression]() `in progress`
+2. [KNN]()
+3. [Naive Bayes]()
+4. [Decision Trees]()
+5. [Bagging]()
+6. [Random Forest]()
+7. [Gradient Boosting Model]() `in progress`
+8. [Support Vector Machines]() `in progress`
+
+## Dokumentasi Klasifikasi Multikelas
 
 1. [Logistic Regression]() `in progress`
 2. [KNN](https://github.com/mohrosidi/predictive_R/blob/master/knn-classification.md)

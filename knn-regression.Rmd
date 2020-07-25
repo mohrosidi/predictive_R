@@ -241,7 +241,7 @@ blueprint <- recipe(Sale_Price ~., data = ames_train) %>%
   # feature filtering
   step_nzv(all_nominal()) %>%
   # label encoding
-  step_integer(dplyr::matches("Exterior|Neighbor|Sub|Qual|Cond|QC|Qu|Type")) %>%
+  step_other(all_nominal(), threshold = 0.05) %>%
   # normalization
   step_normalize(all_numeric(), -all_outcomes()) %>%
   # dummy encode
@@ -315,10 +315,6 @@ knn_fit_cv <- train(
 knn_fit_cv
 ```
 
-```{r}
-
-```
-
 
 Proses *training* berlangsung selama 178.379 detik dengan 72 buah model yang terbentuk. Model terbaik dipilih berdasarkan nilai **RMSE** terbesar. Berdasarkan kriteria tersebut model yang terpilih adalalah model yang memiliki nilai `k` = `r knn_fit_cv$bestTune %>% select(k) %>% pull()`. Nilai **RMSE** rata-rata model terbaik adalah sebagai berikut:
 
@@ -327,7 +323,7 @@ Proses *training* berlangsung selama 178.379 detik dengan 72 buah model yang ter
 knn_rmse <- knn_fit_cv$results %>%
   arrange(RMSE) %>%
   slice(1) %>%
-  select(RMSE) %>%
+  dplyr::select(RMSE) %>%
   pull()
 knn_rmse
 ```

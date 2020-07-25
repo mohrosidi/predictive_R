@@ -143,7 +143,7 @@ Berdasarkan ringkasan data yang dihasilkan, diketahui dimensi data sebesar 2053 
 
 ## Variasi
 
-Variasi dari tiap variabel dapat divisualisasikan dengan menggunakan histogram (numerik) dan baplot (kategorikal).
+Variasi dari tiap variabel dapat divisualisasikan dengan menggunakan histogram (numerik) dan barplot (kategorikal).
 
 ```{r hist}
 plot_histogram(ames_train, ncol = 2L, nrow = 2L)
@@ -210,7 +210,7 @@ Memikirkan *feature engineering* sebagai sebuah *blueprint* memaksa kita untuk m
 
 * Jika menggunakan log atau transformasi Box-Cox, jangan memusatkan data terlebih dahulu atau melakukan operasi apa pun yang dapat membuat data menjadi tidak positif. Atau, gunakan transformasi Yeo-Johnson sehingga kita tidak perlu khawatir tentang hal ini.
 * *One-hot* atau *dummy encoding* biasanya menghasilkan data jarang (*sparse*) yang dapat digunakan oleh banyak algoritma secara efisien. Jika kita menstandarisasikan data tersebut, kita akan membuat data menjadi padat (*dense*) dan kita kehilangan efisiensi komputasi. Akibatnya, sering kali lebih disukai untuk standardisasi fitur numerik kita dan kemudian *one-hot/dummy endode*.
-* Jika kila mengelompokkan kategori (*lumping*) yang jarang terjadi  secara bersamaan, lakukan sebelum *one-hot/dummy endode*.
+* Jika kila mengelompokkan kategori (*lumping*) yang jarang terjadi  secara bersamaan, lakukan sebelum *one-hot/dummy encode*.
 * Meskipun kita dapat melakukan prosedur pengurangan dimensi pada fitur-fitur kategorikal, adalah umum untuk melakukannya terutama pada fitur numerik ketika melakukannya untuk tujuan rekayasa fitur.
 
 Sementara kebutuhan proyek kita mungkin beragam, berikut ini adalah urutan langkah-langkah potensial yang disarankan untuk sebagian besar masalah:
@@ -226,7 +226,7 @@ Sementara kebutuhan proyek kita mungkin beragam, berikut ini adalah urutan langk
 
 Untuk mengilustrasikan bagaimana proses ini bekerja bersama menggunakan R, mari kita lakukan penilaian ulang sederhana pada set data `ames` yang kita gunakan  dan lihat apakah beberapa *feature engineering* sederhana meningkatkan kemampuan prediksi model kita. Tapi pertama-tama, kita berkenalan dengat paket `recipe`.
 
-Paket `recipe` ini memungkinkan kita untuk mengembangkan *bluprint feature engineering* secara berurutan. Gagasan di balik `recipe` mirip dengan `caret :: preProcess()` di mana kita ingin membuat *blueprint preprocessing* tetapi menerapkannya nanti dan dalam setiap resample.
+Paket `recipes` ini memungkinkan kita untuk mengembangkan *bluprint feature engineering* secara berurutan. Gagasan di balik `recipe` mirip dengan `caret :: preProcess()` di mana kita ingin membuat *blueprint preprocessing* tetapi menerapkannya nanti dan dalam setiap resample.
 
 Ada tiga langkah utama dalam membuat dan menerapkan rekayasa fitur dengan `recipe`:
 
@@ -240,11 +240,18 @@ Langkah pertama adalah di mana kita menentukan *blueprint*. Dengan proses ini, K
 blueprint <- recipe(Sale_Price ~., data = ames_train) %>%
   # feature filtering
   step_nzv(all_nominal()) %>%
+  step_corr(all_predictors(), -all_outcomes(), threshold = 0.6) %>%
+  # imputation
+  step_knnimpute(all_predictors(), neighbors = 7) %>%
   # lumping
   step_other(all_nominal(), threshold = 0.05) %>%
   # standardization
   step_center(all_numeric(), -all_outcomes()) %>%
-  step_scale(all_numeric(), -all_outcomes())
+  step_scale(all_numeric(), -all_outcomes()) # %>%
+  # feature extraction
+  # step_pca(all_numeric(), -all_outcomes(), threshold = 0.7) %>%
+  # dummy encode
+  # step_dummy(all_nominal())
   
   
 blueprint
@@ -277,6 +284,15 @@ skim(baked_train)
 
 Regresi linier adalah pendekatan yang sangat sederhana untuk pembelajaran yang diawasi. Secara khusus, regresi linier adalah alat yang berguna untuk memprediksi respons kuantitatif. Regresi linier telah ada sejak lama dan merupakan topik buku teks yang tak terhitung banyaknya. Meskipun mungkin tampak agak membosankan dibandingkan dengan beberapa pendekatan pembelajaran statistik yang lebih modern yang dijelaskan dalam tutorial selanjutnya, regresi linier masih merupakan metode pembelajaran statistik yang bermanfaat dan banyak digunakan. Selain itu, ini berfungsi sebagai titik awal yang baik untuk pendekatan yang lebih baru: seperti yang akan kita lihat dalam tutorial selanjutnya, banyak pendekatan pembelajaran statistik mewah dapat dilihat sebagai generalisasi atau perpanjangan dari regresi linier. Akibatnya, pentingnya memiliki pemahaman yang baik tentang regresi linier sebelum mempelajari metode pembelajaran yang lebih kompleks tidak dapat dilebih-lebihkan.
 
+## Regresi Linier
+
+```{r}
+model_lm <- lm(Sale_Price~., data = baked_train)
+model_glm <- glm(Sale_Price~., data = baked_train, family = "gaussian")
+model_caret <- train(Sale_Price~., data = baked_train, method = 'lm')
+```
+
+
 ## Validasi Silang dan Parameter Tuning
 
 Langkah pertama yang perlu dilakukan dalam melakukan kegiatan validasi silang adalah menentukan spesifikasi parameter validasi silang. Fungsi `trainControl()` merupakan fungsi yang dapat kita gunakan untu menetukan metode validasi silang yang dilakukan dan spesifikasi terkait metode validasi silang yang digunakan.
@@ -289,7 +305,8 @@ cv <- trainControl(
   method = "cv", 
   number = 10, 
   # repeats = 5,
-  savePredictions = TRUE
+  savePredictions = TRUE,
+  allowParallel = TRUE
 )
 ```
 
@@ -318,7 +335,7 @@ Proses *training* berlangsung selama 16.579 detik. Model terbaik dipilih berdasa
 lm_rmse <- lm_fit_cv$results %>%
   arrange(RMSE) %>%
   slice(1) %>%
-  select(RMSE) %>%
+  dplyr::select(RMSE) %>%
   pull()
 lm_rmse
 ```
