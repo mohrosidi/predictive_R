@@ -32,7 +32,7 @@ Pada artikel ini, kita akan membuat model prediktif menggunakan dataset `credit_
 
 ## Library
 
-Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif menggunakan *tree based algorithm*. Paket-paket ditampilkan sebagai berikut:
+Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif menggunakan *knn*. Paket-paket ditampilkan sebagai berikut:
 
 ```{r import-lib}
 # library pembantu
