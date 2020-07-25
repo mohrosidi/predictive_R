@@ -1,0 +1,388 @@
+---
+title: "K-Nearest Neighbors"
+author: "Moh. Rosidi"
+date: "7/23/2020"
+output:
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: no
+    df_print: paged
+    theme: yeti
+    highlight: textmate
+    css: assets/style.css
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+    latex_engine: xelatex
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Dataset Credit Data
+
+Pada artikel ini, kita akan membuat model prediktif menggunakan dataset `credit_data` dari paket `modeldata`. Dataset ini berasal dari website  Dr. Lluís A. Belanche Muñoz yang diambil dari github Dr. Gaston Sanchez. Untuk info lebih lanjut terkait data kunjungi <https://github.com/gastonstat/CreditScoring, http://bit.ly/2kkBFrk>
+
+# Persiapan {.tabset}
+
+## Library
+
+Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif menggunakan *tree based algorithm*. Paket-paket ditampilkan sebagai berikut:
+
+```{r import-lib}
+# library pembantu
+library(tidyverse)
+library(rsample)
+library(recipes)
+library(DataExplorer)
+library(skimr)
+library(DMwR)
+library(modeldata)
+
+# library model
+library(caret)
+
+# paket penjelasan model
+library(vip)
+library(pdp)
+```
+
+**Paket Pembantu**
+
+1. `tidyverse` : kumpulan paket dalam bidang data science
+2. `rsample` : membantu proses *data splitting*
+3. `recipes`: membantu proses data pra-pemrosesan
+4. `DataExplorer` : EDA
+5. `skimr` : membuat ringkasan data
+6. `DMwR` : paket untuk melakukan sampling "smote"
+7. `modeldata` : kumpulan dataset untuk membuat model *machine learning*
+
+**Paket untuk Membangun Model**
+
+1. `caret` : berisikan sejumlah fungsi yang dapat merampingkan proses pembuatan model regresi dan klasifikasi
+
+**Paket Interpretasi Model**
+
+2. `vip` : visualisasi *variable importance*
+3. `pdp` : visualisasi plot ketergantungan parsial
+
+## Import Dataset
+
+Dataset `credit_data` berada dalam paket `modeldata`. Untuk mengimportnya, gunakan fungsi `data()`.
+
+```{r import-data}
+data("credit_data")
+```
+
+
+# Data Splitting
+
+Proses *data splitting* dilakukan setelah data di import ke dalam sistem. Hal ini dilakukan untuk memastikan tidak adanya kebocoran data yang mempengaruhi proses pembuatan model. Data dipisah menjadi dua buah set, yaitu: *training* dan *test*. Data *training* adalah data yang akan kita gunakan untuk membentuk model. Seluruh proses sebelum uji model akan menggunakan data *training*. Proses tersebut, antara lain: EDA, *feature engineering*, dan validasi silang. Data *test* hanya digunakan saat kita akan menguji performa model dengan data baru yang belum pernah dilihat sebelumnya.
+
+Terdapat dua buah jenis sampling pada tahapan *data splitting*, yaitu:
+
+1. *random sampling* : sampling acak tanpa mempertimbangkan adanya strata dalam data
+2. *startified random sampling* : sampling dengan memperhatikan strata dalam sebuah variabel.
+
+Dalam proses pembentukan model kali ini, kita akan menggunakan metode kedua dengan tujuan untuk memperoleh distribusi yang seragam dari variabel target (`Status`).
+
+```{r data-split}
+set.seed(123)
+
+split  <- initial_split(credit_data, prop = 0.8, strata = "Status")
+data_train  <- training(split)
+data_test   <- testing(split)
+```
+
+Untuk mengecek distribusi dari kedua set data, kita dapat mevisualisasikan distribusi dari variabel target pada kedua set tersebut.
+
+```{r target-vis}
+# training set
+ggplot(data_train, aes(x = Status)) + 
+  geom_bar() 
+# test set
+ggplot(data_test, aes(x = Status)) + 
+  geom_bar() 
+```
+
+
+# Analisis Data Eksploratif
+
+Analsiis data eksploratif (EDA) ditujukan untuk mengenali data sebelum kita menentukan algoritma yang cocok digunakan untuk menganalisa data lebih lanjut. EDA merupakan sebuah proses iteratif yang secara garis besar menjawab beberapa pertanyaan umum, seperti:
+
+1. Bagaimana distribusi data pada masing-masing variabel?
+2. Apakah terdapat asosiasi atau hubungan antar variabel dalam data?
+
+## Ringkasan Data
+
+Terdapat dua buah fungsi yang digunakan dalam membuat ringkasan data, antara lain:
+
+1. `glimpse()`: varian dari `str()` untuk mengecek struktur data. Fungsi ini menampilkan transpose dari tabel data dengan menambahkan informasi, seperti: jenis data dan dimensi tabel.
+2. `skim()` : fungsi dari paket `skimr` untuk membuat ringkasan data yang lebih detail dibanding `glimpse()`, seperti: statistika deskriptif masing-masing kolom, dan informasi *missing value* dari masing-masing kolom.
+3. `plot_missing()` : fungsi untuk memvisualisasikan persentase *missing value* pada masing-masing variabel atau kolom data
+
+
+```{r glimpse}
+glimpse(data_train)
+```
+
+```{r skim}
+skim(data_train)
+```
+
+```{r missing-vis}
+plot_missing(data_train)
+```
+
+Berdasarkan ringkasan data yang dihasilkan, diketahui dimensi data sebesar 3565 baris dan 14 kolom. Dengan rincian masing-masing kolom, yaitu: 5 kolom dengan jenis data factor dan 9 kolom dengan jenis data numeric. Informasi lain yang diketahui adalah beberapa kolom dalam data memiliki *missing value*.
+
+## Variasi
+
+Variasi dari tiap variabel dapat divisualisasikan dengan menggunakan histogram (numerik) dan baplot (kategorikal).
+
+```{r hist}
+plot_histogram(data_train, ncol = 2L, nrow = 2L)
+```
+
+```{r bar}
+plot_bar(data_train, ncol = 2L, nrow = 2L)
+```
+
+Berdasarkan hasil visualisasi diperoleh bahwa sebagian besar variabel numerik memiliki distribusi yang tidak simetris. Sedangkan pada variabel kategorikal diketahui bahwa seluruh variabel memiliki variasi yang tidak mendekati nol atau nol. Untuk mengetahui variabel dengan variasi mendekati nol atau nol, dapat menggunakan sintaks berikut:
+
+```{r nzv}
+nzvar <- nearZeroVar(data_train, saveMetrics = TRUE) %>% 
+  rownames_to_column() %>% 
+  filter(nzv)
+nzvar
+```
+
+## Kovarian
+
+Kovarian dapat dicek melalui visualisasi *heatmap* koefisien korelasi.
+
+```{r heatmap}
+plot_correlation(data_train, 
+                 cor_args = list(method = "spearman",
+                                 use = "pairwise.complete.obs"))
+```
+
+# Target and Feature Engineering
+
+*Data preprocessing* dan *engineering* mengacu pada proses penambahan, penghapusan, atau transformasi data. Waktu yang diperlukan untuk memikirkan identifikasi kebutuhan *data engineering* dapat berlangsung cukup lama dan proprsinya akan menjadi yang terbesar dibandingkan analisa lainnya. Hal ini disebabkan karena kita perlu untuk memahami data apa yang akan kita oleh atau diinputkan ke dalam model.
+
+Untuk menyederhanakan proses *feature engineering*, kita harus memikirkannya sebagai sebuah *blueprint* dibanding melakukan tiap tugasnya secara satu persatu. Hal ini membantu kita dalam dua hal:
+
+1. Berpikir secara berurutan
+2. Mengaplikasikannya secara tepat selama proses *resampling*
+
+## Urutan Langkah-Langkah Feature Engineering
+
+Memikirkan *feature engineering* sebagai sebuah *blueprint* memaksa kita untuk memikirkan urutan langkah-langkah *preprocessing* data. Meskipun setiap masalah mengharuskan kita untuk memikirkan efek *preprocessing* berurutan, ada beberapa saran umum yang harus kita pertimbangkan:
+
+* Jika menggunakan log atau transformasi Box-Cox, jangan memusatkan data terlebih dahulu atau melakukan operasi apa pun yang dapat membuat data menjadi tidak positif. Atau, gunakan transformasi Yeo-Johnson sehingga kita tidak perlu khawatir tentang hal ini.
+* *One-hot* atau *dummy encoding* biasanya menghasilkan data jarang (*sparse*) yang dapat digunakan oleh banyak algoritma secara efisien. Jika kita menstandarisasikan data tersebut, kita akan membuat data menjadi padat (*dense*) dan kita kehilangan efisiensi komputasi. Akibatnya, sering kali lebih disukai untuk standardisasi fitur numerik kita dan kemudian *one-hot/dummy endode*.
+* Jika kila mengelompokkan kategori (*lumping*) yang jarang terjadi  secara bersamaan, lakukan sebelum *one-hot/dummy endode*.
+* Meskipun kita dapat melakukan prosedur pengurangan dimensi pada fitur-fitur kategorikal, adalah umum untuk melakukannya terutama pada fitur numerik ketika melakukannya untuk tujuan rekayasa fitur.
+
+Sementara kebutuhan proyek kita mungkin beragam, berikut ini adalah urutan langkah-langkah potensial yang disarankan untuk sebagian besar masalah:
+
+1. Filter fitur dengan varians nol (*zero varians*) atau hampir nol (*near zero varians*).
+2. Lakukan imputasi jika diperlukan.
+3. Normalisasi untuk menyelesaikan *skewness* fitur numerik.
+4. Standardisasi fitur numerik (*centering* dan *scaling*).
+5. Lakukan reduksi dimensi (mis., PCA) pada fitur numerik.
+6. *one-hot/dummy endode* pada fitur kategorikal.
+
+## Meletakkan Seluruh Proses Secara Bersamaan
+
+Untuk mengilustrasikan bagaimana proses ini bekerja bersama menggunakan R, mari kita lakukan penilaian ulang sederhana pada set data `ames` yang kita gunakan  dan lihat apakah beberapa *feature engineering* sederhana meningkatkan kemampuan prediksi model kita. Tapi pertama-tama, kita berkenalan dengat paket `recipe`.
+
+Paket `recipe` ini memungkinkan kita untuk mengembangkan *bluprint feature engineering* secara berurutan. Gagasan di balik `recipe` mirip dengan `caret :: preProcess()` di mana kita ingin membuat *blueprint preprocessing* tetapi menerapkannya nanti dan dalam setiap resample.
+
+Ada tiga langkah utama dalam membuat dan menerapkan rekayasa fitur dengan `recipe`:
+
+1. `recipe()`: tempat kita menentukan langkah-langkah rekayasa fitur untuk membuat *blueprint*.
+2. `prep()`: memperkirakan parameter *feature engineering* berdasarkan data *training*.
+3. `bake()`: terapkan *blueprint* untuk data baru.
+
+```{r}
+blueprint <- recipe(Status ~ ., data = data_train) %>%
+  step_nzv(all_nominal())  %>%
+  
+  # 2. imputation to missing value
+  # step_medianimpute("<Num_Var_name>") %>% # median imputation
+  # step_meanimpute("<Num_var_name>") %>% # mean imputation
+  # step_modeimpute("<Cat_var_name>") %>% # mode imputation
+  step_bagimpute(all_predictors()) %>% # random forest imputation
+  # step_knnimpute("<Var_name>") %>% # knn imputation
+  
+  # Label encoding for categorical variable with many classes 
+  # step_integer("<Cat_var_name>") %>%
+  
+  # 3. normalize 
+  step_normalize(all_numeric()) %>%
+  
+  # 4. dummy encoding
+  step_dummy(all_nominal(), -all_outcomes())
+
+blueprint
+```
+
+Selanjutnya, *blueprint* yang telah dibuat dilakukan *training* pada data *training*. Perlu diperhatikan, kita tidak melakukan proses *training* pada data *test* untuk mencegah *data leakage*.
+
+```{r prep}
+prepare <- prep(blueprint, training = data_train)
+prepare
+```
+
+Langkah terakhir adalah mengaplikasikan *blueprint* pada data *training* dan *test* menggunakan fungsi `bake()`.
+
+```{r baked}
+baked_train <- bake(prepare, new_data = data_train)
+baked_test <- bake(prepare, new_data = data_test)
+baked_train
+```
+
+
+# K-Nearest Neighbors
+
+K-nearest Neighbors (KNN) adalah algoritma yang sangat sederhana di mana setiap pengamatan diprediksi berdasarkan "kesamaan" dengan pengamatan lainnya. Tidak seperti kebanyakan metode lainnya, KNN adalah algoritma berbasis memori dan tidak dapat diringkas oleh model bentuk tertutup. Ini berarti sampel pelatihan diperlukan saat run-time dan prediksi dibuat langsung dari hubungan sampel. Akibatnya, KNN juga dikenal sebagai *lazy learners* (Cunningham dan Delany 2007) dan dapat menjadi tidak efisien secara komputasi. Namun, KNN telah berhasil dalam sejumlah besar masalah bisnis (Jiang et al. (2012) dan Mccord dan Chuah (2011)) dan berguna untuk tujuan preprocessing juga.
+
+## Validasi Silang dan Parameter Tuning
+
+Langkah pertama yang perlu dilakukan dalam melakukan kegiatan validasi silang adalah menentukan spesifikasi parameter validasi silang. Fungsi `trainControl()` merupakan fungsi yang dapat kita gunakan untu menetukan metode validasi silang yang dilakukan dan spesifikasi terkait metode validasi silang yang digunakan.
+
+```{r knn-cv}
+# spesifikasi metode validasi silang
+cv <- trainControl(
+  # possible value: "boot", "boot632", "optimism_boot", "boot_all", "cv", 
+  #                 "repeatedcv", "LOOCV", "LGOCV"
+  method = "cv", 
+  number = 10, 
+  # repeats = 5,
+  classProbs = TRUE,
+  sampling = "smote",
+  savePredictions = TRUE,
+  summaryFunction = twoClassSummary,
+  allowParallel = TRUE
+)
+```
+
+Selanjutnya spesifikasikan *hyperparameter* yang akan di *tuning*.
+
+```{r knn-hyper}
+## Construct grid of hyperparameter values
+hyper_grid <- expand.grid(k = seq(2, 30, by = 2))
+```
+
+Setelah parameter *tuning* dan validasi silang dispesifikasikan, proses training dilakukan menggunakan fungsi `train()`.
+
+```{r knn-fit}
+system.time(
+model_fit_cv <- train(
+  blueprint, 
+  data = data_train, 
+  method = "knn", 
+  trControl = cv, 
+  tuneGrid = hyper_grid,
+  metric = "ROC"
+  )
+)
+
+model_fit_cv
+```
+
+Proses *training* berlangsung selama 178.379 detik dengan 72 buah model yang terbentuk. Model terbaik dipilih berdasarkan nilai **ROC** terbesar. Berdasarkan kriteria tersebut model yang terpilih adalalah model yang memiliki nilai `k` = `r model_fit_cv$bestTune %>% dplyr::select(k) %>% pull()`. Nilai **ROC** rata-rata model terbaik adalah sebagai berikut:
+
+
+```{r model-roc}
+roc <- model_fit_cv$results %>%
+  arrange(-AUC) %>%
+  slice(1) %>%
+  select(ROC) %>%
+  pull()
+roc
+```
+
+Berdasarkan hasil yang diperoleh, luas area dibawah kurva **ROC** sebesar `r roc` Berdasarkan hasil tersebut, model klasifikasi yang terbentuk lebih baik dibanding menebak secara acak. 
+
+Visualisasi hubungan antar parameter  dan **ROC** ditampilkan pada gambar berikut:
+
+```{r model-cv-vis, chace = TRUE}
+# visualisasi
+ggplot(model_fit_cv)
+```
+
+
+## Model Akhir
+
+Model terbaik dari hasil proses validasi silang selanjutnya diekstrak. Hal ini berguna untuk mengurangi ukuran model yang tersimpan. Secara default fungsi `train()` akan mengembalikan model dengan performa terbaik. Namun, terdapat sejumlah komponen lain dalam objek yang terbentuk, seperti: hasil prediksi, ringkasan training, dll. yang membuat ukuran objek menjadi besar. Untuk menguranginya, kita perlu mengambil objek model final dari objek hasil validasi silang.
+
+```{r model-final}
+model_fit <- model_fit_cv$finalModel
+```
+
+Ringkasan model final *KNN* ditampilkan menggunakan sintaks berikut: 
+
+```{r model-vis}
+model_fit
+```
+
+Model yang dihasilkan selanjutnya dapat kita uji lagi menggunakan data baru. Berikut adalah perhitungan nilai **Akurasi** model pada data *test*.
+
+```{r model-cm-test}
+pred_test <- predict(model_fit, {baked_test %>% 
+    dplyr::select(!artist)})
+
+pred_test <-
+  as.data.frame(pred_test) %>%
+  rowid_to_column("row") %>%
+  pivot_longer(cols = Jason_Mraz:Queen, names_to = "artist", values_to = "prob") %>%
+  group_by(row) %>%
+  summarise(prediction = which.max(prob)) %>%
+  mutate(prediction = factor(prediction, 
+                             labels = c("Jason_Mraz", "Maroon_5", "Queen" ))) %>%
+  dplyr::select(prediction) %>%
+  pull()
+
+## RMSE
+cm <- confusionMatrix(pred_test, baked_test$artist)
+cm
+```
+
+Berdasarkan hasil evaluasi diperoleh nilai akurasi sebesar `r cm$overall[1]`
+
+
+## Interpretasi Fitur
+
+Untuk mengetahui variabel yang paling berpengaruh secara global terhadap hasil prediksi model, kita dapat menggunakan plot *variable importance*.
+
+```{r model-vip}
+vi <- varImp(model_fit_cv, num_features = 10) %>% ggplot()
+vi
+```
+
+Berdasarkan terdapat 4 buah variabel yang berpengaruh besar terhadap prediksi yang dihasilkan oleh model, antara lain: `r as.character(vi$data[1:4, 3])`. Untuk melihat efek dari masing-masing variabel terhadap variabel respon, kita dapat menggunakan *partial dependence plot*.
+
+```{r model-pdp}
+p1 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[1, 3])) %>% 
+  autoplot() 
+
+p2 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[2, 3])) %>% 
+  autoplot()
+
+p3 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[3, 3])) %>% 
+  autoplot()
+  
+
+p4 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[4, 3])) %>% 
+  autoplot()
+
+grid.arrange(p1, p2, p3, p4, nrow = 2)
+```
