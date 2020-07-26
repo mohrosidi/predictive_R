@@ -17,7 +17,7 @@ Untuk info lebih lanjut terkait data kunjungi
 ## Library
 
 Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif
-menggunakan *knn*. Paket-paket ditampilkan sebagai berikut:
+menggunakan *knn*. Paket-paket yang digunakan ditampilkan sebagai berikut:
 
 ``` r
 # library pembantu
