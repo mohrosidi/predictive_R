@@ -17,7 +17,7 @@ terkait dataset ini, kunjungin tautan berikut:
 ## Library
 
 Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif
-menggunakan *tree based algorithm*. Paket-paket ditampilkan sebagai
+menggunakan *principal component regression* (PCR). Paket-paket yang digunakan ditampilkan sebagai
 berikut:
 
 ``` r
