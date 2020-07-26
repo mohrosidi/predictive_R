@@ -82,7 +82,7 @@ Kolom-kolom pada dataset tersebut, antara lain:
 ## Library
 
 Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif
-menggunakan *tree based algorithm*. Paket-paket ditampilkan sebagai
+menggunakan *naive bayes*. Paket-paket yang digunakan ditampilkan sebagai
 berikut:
 
 ``` r
@@ -895,8 +895,7 @@ nb_fit_cv$bestTune
     ##    fL usekernel adjust
     ## 68  5      TRUE      1
 
-Proses *training* berlangsung selama 178.379 detik dengan 72 buah model
-yang terbentuk. Model terbaik dipilih berdasarkan nilai **AUC**
+Model terbaik dipilih berdasarkan nilai **AUC**
 terbesar. Berdasarkan kriteria tersebut model yang terpilih adalalah
 model yang memiliki nilai `fL` = 5, `usekernel` = TRUE dan `adjust` = 1.
 Nilai **AUC** rata-rata model terbaik adalah sebagai berikut:
