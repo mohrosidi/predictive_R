@@ -42,7 +42,6 @@ library(rsample)
 library(recipes)
 library(DataExplorer)
 library(skimr)
-library(DMwR)
 library(modeldata)
 
 # library model
@@ -61,7 +60,6 @@ library(pdp)
 3. `recipes`: membantu proses data pra-pemrosesan
 4. `DataExplorer` : EDA
 5. `skimr` : membuat ringkasan data
-6. `DMwR` : paket untuk melakukan sampling "smote"
 7. `modeldata` : kumpulan dataset untuk membuat model *machine learning*
 
 **Paket untuk Membangun Model**
@@ -231,7 +229,10 @@ blueprint <- recipe(Status ~ ., data = data_train) %>%
   step_normalize(all_numeric()) %>%
   
   # 4. dummy encoding
-  step_dummy(all_nominal(), -all_outcomes())
+  step_dummy(all_nominal(), -all_outcomes()) %>%
+  
+  # 5. upsampling
+  step_upsample(all_outcomes())
 
 blueprint
 ```
@@ -272,7 +273,6 @@ cv <- trainControl(
   number = 4, 
   # repeats = 5,
   classProbs = TRUE,
-  sampling = "smote",
   savePredictions = TRUE,
   summaryFunction = twoClassSummary,
   allowParallel = TRUE

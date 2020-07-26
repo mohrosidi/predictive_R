@@ -1,9 +1,8 @@
 ---
-title: "K-Nearest Neighbors"
+title: "Naive Bayes"
 author: "Moh. Rosidi"
-date: "7/23/2020"
+date: "7/26/2020"
 output: github_document
-
 ---
 
 ```{r setup, include=FALSE}
@@ -18,7 +17,7 @@ Pada artikel ini, kita akan membuat model prediktif menggunakan dataset `credit_
 
 ## Library
 
-Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif menggunakan *knn*. Paket-paket ditampilkan sebagai berikut:
+Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif menggunakan *naive bayes*. Paket-paket ditampilkan sebagai berikut:
 
 ```{r import-lib}
 # library pembantu
@@ -33,6 +32,7 @@ library(modeldata)
 
 # library model
 library(caret)
+library(klaR)
 
 # paket penjelasan model
 library(vip)
@@ -52,7 +52,8 @@ library(pdp)
 
 **Paket untuk Membangun Model**
 
-1. `caret` : berisikan sejumlah fungsi yang dapat merampingkan proses pembuatan model regresi dan klasifikasi
+1. `caret` : berisikan sejumlah fungsi yang dapat merampingkan proses pembuatan model regresi dan klasifikasi.
+2. `klaR` : membuat model naive bayes
 
 **Paket Interpretasi Model**
 
@@ -213,11 +214,13 @@ blueprint <- recipe(Status ~ ., data = data_train) %>%
   # Label encoding for categorical variable with many classes 
   # step_integer("<Cat_var_name>") %>%
   
-  # 3. normalize 
-  step_normalize(all_numeric()) %>%
+  # 3. standardization 
+  step_center(all_numeric())  %>%
+  step_scale(all_numeric()) %>%
   
-  # 4. dummy encoding
-  step_dummy(all_nominal(), -all_outcomes())
+  # 4. upsampling
+  step_upsample(all_outcomes())
+  
 
 blueprint
 ```
@@ -238,16 +241,29 @@ baked_train
 ```
 
 
-# K-Nearest Neighbors
+# Naive Bayes
 
-K-nearest Neighbors (KNN) adalah algoritma yang sangat sederhana di mana setiap pengamatan diprediksi berdasarkan "kesamaan" dengan pengamatan lainnya. Tidak seperti kebanyakan metode lainnya, KNN adalah algoritma berbasis memori dan tidak dapat diringkas oleh model bentuk tertutup. Ini berarti sampel pelatihan diperlukan saat run-time dan prediksi dibuat langsung dari hubungan sampel. Akibatnya, KNN juga dikenal sebagai *lazy learners* (Cunningham dan Delany 2007) dan dapat menjadi tidak efisien secara komputasi. Namun, KNN telah berhasil dalam sejumlah besar masalah bisnis (Jiang et al. (2012) dan Mccord dan Chuah (2011)) dan berguna untuk tujuan preprocessing juga.
+Klasifikasi Bayes naif didasarkan pada probabilitas Bayesian, yang berasal dari [Reverend Thomas Bayes](https://en.wikipedia.org/wiki/Thomas_Bayes). Probabilitas Bayesian menggabungkan konsep probabilitas kondisional, probabilitas peristiwa A mengingat bahwa peristiwa B telah terjadi [dilambangkan sebagai $P(A \vert B)$. 
+
+Teorema bayes dapat dituliskan sebagai berikut:
+
+$$
+P(C_k \vert X) = \frac{P(C_k) \cdot P(X \vert C_k)}{P(X)} \tag{1}
+$$
+
+dimana:
+
+* $P(C_k)$ merupakan probabilitas *prior* output
+* $P(X)$  merupakan probabilitas prediktor
+* $P(X \vert C_k)$ merupakan probabilitas bersyarat atau kemungkinan
+* $P(C_k \vert X)$ probabilitas posterior.
 
 ## Validasi Silang dan Parameter Tuning
 
 Langkah pertama yang perlu dilakukan dalam melakukan kegiatan validasi silang adalah menentukan spesifikasi parameter validasi silang. Fungsi `trainControl()` merupakan fungsi yang dapat kita gunakan untu menetukan metode validasi silang yang dilakukan dan spesifikasi terkait metode validasi silang yang digunakan.
 
 ```{r knn-cv}
-cl <- makePSOCKcluster(3)
+cl <- makePSOCKcluster(2)
 registerDoParallel(cl)
 
 # spesifikasi metode validasi silang
@@ -258,7 +274,6 @@ cv <- trainControl(
   number = 4, 
   # repeats = 5,
   classProbs = TRUE,
-  sampling = "smote",
   savePredictions = TRUE,
   summaryFunction = twoClassSummary,
   allowParallel = TRUE
@@ -269,7 +284,14 @@ Selanjutnya spesifikasikan *hyperparameter* yang akan di *tuning*.
 
 ```{r knn-hyper}
 ## Construct grid of hyperparameter values
-hyper_grid <- expand.grid(k = seq(2, 30, by = 2))
+hyper_grid <- expand.grid(
+  # kernel density estimate for continous variables vs gaussian density estimate
+  usekernel = c(TRUE, FALSE),
+  # incorporate the Laplace smoother.
+  fL = 0:5,
+  # djust the bandwidth of the kernel density (larger numbers mean more flexible density estimate)
+  adjust = seq(0, 5, by = 1)
+)
 ```
 
 Setelah parameter *tuning* dan validasi silang dispesifikasikan, proses training dilakukan menggunakan fungsi `train()`.
@@ -277,11 +299,11 @@ Setelah parameter *tuning* dan validasi silang dispesifikasikan, proses training
 ```{r knn-fit}
 system.time(
 model_fit_cv <- train(
-  blueprint, 
-  data = data_train, 
-  method = "knn", 
-  trControl = cv, 
-  tuneGrid = hyper_grid,
+  blueprint,
+  data = data_train,
+  method = "nb",
+  trControl = cv,
+  tuneGrid =  hyper_grid,
   metric = "ROC"
   )
 )
@@ -290,14 +312,14 @@ stopCluster(cl)
 model_fit_cv
 ```
 
-Proses *training* berlangsung selama 178.379 detik dengan 72 buah model yang terbentuk. Model terbaik dipilih berdasarkan nilai **ROC** terbesar. Berdasarkan kriteria tersebut model yang terpilih adalalah model yang memiliki nilai `k` = `r model_fit_cv$bestTune %>% dplyr::select(k) %>% pull()`. Nilai **ROC** rata-rata model terbaik adalah sebagai berikut:
+Model terbaik dipilih berdasarkan nilai **AUC** terbesar. Berdasarkan kriteria tersebut model yang terpilih adalalah model yang memiliki nilai `ft` = `r model_fit_cv$bestTune %>% dplyr::select(fL) %>% pull()`, `usekernel` = `r  model_fit_cv$bestTune %>% dplyr::select(usekernel) %>% pull()` dan `adjust` = `r model_fit_cv$bestTune %>% dplyr::select(adjust) %>% pull()`. Nilai **AUC** rata-rata model terbaik adalah sebagai berikut:
 
 
 ```{r model-roc}
 roc <- model_fit_cv$results %>%
   arrange(-ROC) %>%
   slice(1) %>%
-  select(ROC) %>%
+  dplyr::select(ROC) %>%
   pull()
 roc
 ```
@@ -323,18 +345,18 @@ model_fit <- model_fit_cv$finalModel
 Ringkasan model final *KNN* ditampilkan menggunakan sintaks berikut: 
 
 ```{r model-vis}
-model_fit
+plot(model_fit)
 ```
 
 Model yang dihasilkan selanjutnya dapat kita uji lagi menggunakan data baru. Berikut adalah perhitungan nilai **Akurasi** model pada data *test*.
 
 ```{r model-cm-test}
-pred_test <- predict(model_fit, baked_test %>% select(!Status),
+pred_test <- predict(model_fit, baked_test %>% dplyr::select(!Status),
                      type = "class")
 
 
 ## RMSE
-cm <- confusionMatrix(pred_test, baked_test$Status)
+cm <- confusionMatrix(pred_test$class, baked_test$Status)
 cm
 ```
 
@@ -354,14 +376,14 @@ Berdasarkan terdapat 4 buah variabel yang berpengaruh besar terhadap prediksi ya
 
 ```{r model-pdp}
 pred.fun <- function(object, newdata) {
-  Yes <- mean(predict(object, newdata, type = "prob")$Yes)
-  as.data.frame(Yes)
+  Good <- mean(predict(object, newdata, type = "prob")$good)
+  as.data.frame(Good)
 }
 
 p1 <- pdp::partial(model_fit_cv, pred.var = vi$data %>% rownames_to_column("ID") %>% .[1,1], pred.fun = pred.fun) %>% 
   autoplot() 
 
-p2 <- pdp::partial(model_fit_cv, pred.var = "Job", pred.fun = pred.fun) %>% 
+p2 <- pdp::partial(model_fit_cv, pred.var = vi$data %>% rownames_to_column("ID") %>% .[2,1], pred.fun = pred.fun) %>% 
   autoplot()
 
 p3 <- pdp::partial(model_fit_cv, pred.var = vi$data %>% rownames_to_column("ID") %>% .[3,1], pred.fun = pred.fun) %>% 

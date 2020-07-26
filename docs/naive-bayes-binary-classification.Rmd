@@ -327,7 +327,9 @@ stopCluster(cl)
 model_fit_cv
 ```
 
-Model terbaik dipilih berdasarkan nilai **AUC** terbesar. Berdasarkan kriteria tersebut model yang terpilih adalalah model yang memiliki nilai `ft` = `r model_fit_cv$bestTune %>% dplyr::select(fl) %>% pull()`, `usekernel` = `r r model_fit_cv$bestTune %>% dplyr::select(usekernel) %>% pull()` dan `adjust` = `r model_fit_cv$bestTune %>% dplyr::select(adjust) %>% pull()`. Nilai **AUC** rata-rata model terbaik adalah sebagai berikut:
+
+
+Model terbaik dipilih berdasarkan nilai **AUC** terbesar. Berdasarkan kriteria tersebut model yang terpilih adalalah model yang memiliki nilai `ft` = `r model_fit_cv$bestTune %>% dplyr::select(fL) %>% pull()`, `usekernel` = `r  model_fit_cv$bestTune %>% dplyr::select(usekernel) %>% pull()` dan `adjust` = `r model_fit_cv$bestTune %>% dplyr::select(adjust) %>% pull()`. Nilai **AUC** rata-rata model terbaik adalah sebagai berikut:
 
 
 ```{r model-roc}
