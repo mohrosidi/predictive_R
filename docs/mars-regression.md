@@ -17,7 +17,7 @@ terkait dataset ini, kunjungin tautan berikut:
 ## Library
 
 Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif
-menggunakan *tree based algorithm*. Paket-paket ditampilkan sebagai
+menggunakan *mars*. Paket-paket yang digunakan ditampilkan sebagai
 berikut:
 
 ``` r
@@ -988,8 +988,7 @@ mars_fit_cv
     ## RMSE was used to select the optimal model using the smallest value.
     ## The final values used for the model were nprune = 45 and degree = 2.
 
-Proses *training* berlangsung selama 180.537 detik dengan 30 buah model
-yang terbentuk. Model terbaik dipilih berdasarkan nilai **RMSE**
+Model terbaik dipilih berdasarkan nilai **RMSE**
 terbesar. Berdasarkan kriteria tersebut model yang terpilih adalalah
 model yang memiliki nilai `nprune` = 45 dan `degree` = 2. Nilai **RMSE**
 rata-rata model terbaik adalah sebagai berikut:
