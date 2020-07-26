@@ -17,7 +17,7 @@ terkait dataset ini, kunjungin tautan berikut:
 ## Library
 
 Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif
-menggunakan *tree based algorithm*. Paket-paket ditampilkan sebagai
+menggunakan *regularized regression*. Paket-paket ditampilkan sebagai
 berikut:
 
 ``` r
@@ -812,7 +812,7 @@ rr_fit_cv$bestTune$lambda
 
     ## [1] 747.3905
 
-Proses *training* berlangsung selama 16.579 detik. Model terbaik dipilih
+Model terbaik dipilih
 berdasarkan nilai **RMSE** terbesar. Berdasarkan kriteria tersebut model
 yang terpilih adalalah model yang memiliki nilai `alpha` = 0.4 dan
 `lambda` = 747.390471. Nilai **RMSE** rata-rata model terbaik adalah
