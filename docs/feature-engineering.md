@@ -16,8 +16,7 @@ terkait dataset ini, kunjungin tautan berikut:
 
 ## Library
 
-Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif
-menggunakan *tree based algorithm*. Paket-paket ditampilkan sebagai
+Terdapat sejumlah paket yang digunakan dalam tutorial kali ini. Paket-paket yang akan digunakan, ditampilkan sebagai
 berikut:
 
 ``` r
