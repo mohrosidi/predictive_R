@@ -82,7 +82,7 @@ Kolom-kolom pada dataset tersebut, antara lain:
 ## Library
 
 Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif
-menggunakan *tree based algorithm*. Paket-paket ditampilkan sebagai
+menggunakan *k-nearest neighbors*. Paket-paket yang digunakan ditampilkan sebagai
 berikut:
 
 ``` r
@@ -107,17 +107,17 @@ library(pdp)
 
 **Paket Pembantu**
 
-3.  `foreach` : paket untuk melakukan *parallel computing*. Diperlukan
+1.  `foreach` : paket untuk melakukan *parallel computing*. Diperlukan
     untuk melakukan *fitting* model *parallel random forest*
-4.  `import` : paket yang menangani *dependency* fungsi antar paket
+2.  `import` : paket yang menangani *dependency* fungsi antar paket
     dalam proses *fitting* model *parallel random forest*
-5.  `tidyverse` : kumpulan paket dalam bidang data science
-6.  `rsample` : membantu proses *data splitting*
-7.  `recipes`: membantu proses data pra-pemrosesan
-8.  `DataExplorer` : EDA
-9.  `skimr` : membuat ringkasan data
-10. `DMwR` : paket untuk melakukan sampling “smote”
-11. `modeldata` : kumpulan dataset untuk membuat model *machine
+3.  `tidyverse` : kumpulan paket dalam bidang data science
+4.  `rsample` : membantu proses *data splitting*
+5.  `recipes`: membantu proses data pra-pemrosesan
+6.  `DataExplorer` : EDA
+7.  `skimr` : membuat ringkasan data
+8. `DMwR` : paket untuk melakukan sampling “smote”
+9. `modeldata` : kumpulan dataset untuk membuat model *machine
     learning*
 
 **Paket untuk Membangun Model**
@@ -709,8 +709,7 @@ knn_fit_cv
     ## AUC was used to select the optimal model using the largest value.
     ## The final value used for the model was k = 29.
 
-Proses *training* berlangsung selama 178.379 detik dengan 72 buah model
-yang terbentuk. Model terbaik dipilih berdasarkan nilai **AUC**
+Model terbaik dipilih berdasarkan nilai **AUC**
 terbesar. Berdasarkan kriteria tersebut model yang terpilih adalalah
 model yang memiliki nilai `k` = 29. Nilai **AUC** rata-rata model
 terbaik adalah sebagai berikut:
