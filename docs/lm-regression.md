@@ -17,7 +17,7 @@ terkait dataset ini, kunjungin tautan berikut:
 ## Library
 
 Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif
-menggunakan *tree based algorithm*. Paket-paket ditampilkan sebagai
+menggunakan regresi linier. Paket-paket yang digunakan ditampilkan sebagai
 berikut:
 
 ``` r
@@ -928,7 +928,7 @@ lm_fit_cv
     ## 
     ## Tuning parameter 'intercept' was held constant at a value of TRUE
 
-Proses *training* berlangsung selama 16.579 detik. Model terbaik dipilih
+Model terbaik dipilih
 berdasarkan nilai **RMSE** terbesar. Nilai **RMSE** rata-rata model
 terbaik adalah sebagai berikut:
 
