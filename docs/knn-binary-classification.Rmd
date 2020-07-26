@@ -36,6 +36,7 @@ Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif menggunak
 
 ```{r import-lib}
 # library pembantu
+library(doParallel)
 library(tidyverse)
 library(rsample)
 library(recipes)
@@ -54,6 +55,7 @@ library(pdp)
 
 **Paket Pembantu**
 
+1. `doParallel` : parallel processing di `R`
 1. `tidyverse` : kumpulan paket dalam bidang data science
 2. `rsample` : membantu proses *data splitting*
 3. `recipes`: membantu proses data pra-pemrosesan
@@ -259,12 +261,15 @@ K-nearest Neighbors (KNN) adalah algoritma yang sangat sederhana di mana setiap 
 Langkah pertama yang perlu dilakukan dalam melakukan kegiatan validasi silang adalah menentukan spesifikasi parameter validasi silang. Fungsi `trainControl()` merupakan fungsi yang dapat kita gunakan untu menetukan metode validasi silang yang dilakukan dan spesifikasi terkait metode validasi silang yang digunakan.
 
 ```{r knn-cv}
+cl <- makePSOCKcluster(3)
+registerDoParallel(cl)
+
 # spesifikasi metode validasi silang
 cv <- trainControl(
   # possible value: "boot", "boot632", "optimism_boot", "boot_all", "cv", 
   #                 "repeatedcv", "LOOCV", "LGOCV"
   method = "cv", 
-  number = 10, 
+  number = 4, 
   # repeats = 5,
   classProbs = TRUE,
   sampling = "smote",
@@ -294,6 +299,7 @@ model_fit_cv <- train(
   metric = "ROC"
   )
 )
+stopCluster(cl)
 
 model_fit_cv
 ```
@@ -303,7 +309,7 @@ Proses *training* berlangsung selama 178.379 detik dengan 72 buah model yang ter
 
 ```{r model-roc}
 roc <- model_fit_cv$results %>%
-  arrange(-AUC) %>%
+  arrange(-ROC) %>%
   slice(1) %>%
   select(ROC) %>%
   pull()
@@ -337,22 +343,12 @@ model_fit
 Model yang dihasilkan selanjutnya dapat kita uji lagi menggunakan data baru. Berikut adalah perhitungan nilai **Akurasi** model pada data *test*.
 
 ```{r model-cm-test}
-pred_test <- predict(model_fit, {baked_test %>% 
-    dplyr::select(!artist)})
+pred_test <- predict(model_fit, baked_test %>% select(!Status),
+                     type = "class")
 
-pred_test <-
-  as.data.frame(pred_test) %>%
-  rowid_to_column("row") %>%
-  pivot_longer(cols = Jason_Mraz:Queen, names_to = "artist", values_to = "prob") %>%
-  group_by(row) %>%
-  summarise(prediction = which.max(prob)) %>%
-  mutate(prediction = factor(prediction, 
-                             labels = c("Jason_Mraz", "Maroon_5", "Queen" ))) %>%
-  dplyr::select(prediction) %>%
-  pull()
 
 ## RMSE
-cm <- confusionMatrix(pred_test, baked_test$artist)
+cm <- confusionMatrix(pred_test, baked_test$Status)
 cm
 ```
 
@@ -368,21 +364,40 @@ vi <- varImp(model_fit_cv, num_features = 10) %>% ggplot()
 vi
 ```
 
-Berdasarkan terdapat 4 buah variabel yang berpengaruh besar terhadap prediksi yang dihasilkan oleh model, antara lain: `r as.character(vi$data[1:4, 3])`. Untuk melihat efek dari masing-masing variabel terhadap variabel respon, kita dapat menggunakan *partial dependence plot*.
+Berdasarkan terdapat 4 buah variabel yang berpengaruh besar terhadap prediksi yang dihasilkan oleh model, antara lain: `r vi$data %>% rownames_to_column("ID") %>% .[1:4,1]`. Untuk melihat efek dari masing-masing variabel terhadap variabel respon, kita dapat menggunakan *partial dependence plot*.
 
 ```{r model-pdp}
-p1 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[1, 3])) %>% 
+pred.fun <- function(object, newdata) {
+  Good <- mean(predict(object, newdata, type = "prob")$good)
+  as.data.frame(Good)
+}
+
+p1 <- pdp::partial(model_fit_cv, pred.var = vi$data %>% rownames_to_column("ID") %>% .[1,1], pred.fun = pred.fun) %>% 
   autoplot() 
 
-p2 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[2, 3])) %>% 
+p2 <- pdp::partial(model_fit_cv, pred.var = "Job", pred.fun = pred.fun) %>% 
   autoplot()
 
-p3 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[3, 3])) %>% 
+p3 <- pdp::partial(model_fit_cv, pred.var = vi$data %>% rownames_to_column("ID") %>% .[3,1], pred.fun = pred.fun) %>% 
   autoplot()
   
 
-p4 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[4, 3])) %>% 
-  autoplot()
+p4 <- pdp::partial(model_fit_cv, pred.var = vi$data %>% rownames_to_column("ID") %>% .[4,1], pred.fun = pred.fun) %>% 
+
+  
+    autoplot()
 
 grid.arrange(p1, p2, p3, p4, nrow = 2)
 ```
+
+
+
+
+
+
+
+
+
+
+
+
