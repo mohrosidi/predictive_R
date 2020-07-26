@@ -924,7 +924,7 @@ pc_fit_cv
     ## RMSE was used to select the optimal model using the smallest value.
     ## The final value used for the model was ncomp = 3.
 
-Proses *training* berlangsung selama 16.579 detik. Model terbaik dipilih
+Model terbaik dipilih
 berdasarkan nilai **RMSE** terbesar. Berdasarkan kriteria tersebut model
 yang terpilih adalalah model yang memiliki nilai `ncomp` = 3. Nilai
 **RMSE** rata-rata model terbaik adalah sebagai berikut:
