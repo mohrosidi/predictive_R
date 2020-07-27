@@ -2,21 +2,7 @@
 title: "Data Spliting dan Feature Engineering"
 author: "Moh. Rosidi"
 date: "7/23/2020"
-output:
-  html_document:
-    number_sections: yes
-    toc: yes
-    toc_depth: 3
-    toc_float:
-      collapsed: no
-    df_print: paged
-    theme: yeti
-    highlight: textmate
-    css: assets/style.css
-  pdf_document:
-    toc: yes
-    toc_depth: '3'
-    latex_engine: xelatex
+output: github_document
 ---
 
 # Dataset Ames
@@ -100,41 +86,41 @@ Berikut ditampilkan dua buah macam pemisahan data tersebut.
 
 **_Simple Random Sampling_**
 
-```{r data-split}
+```{r data-split1}
 set.seed(123)
 
 split1  <- initial_split(ames, prop = 0.7)
-ames_train1  <- training(split1)
-ames_test1   <- testing(split1)
+data_train1  <- training(split1)
+data_test1   <- testing(split1)
 ```
 
 **_Stratified Random Sampling_**
 
-```{r data-split}
+```{r data-split2}
 set.seed(123)
 
 split2  <- initial_split(ames, prop = 0.7, strata = "sale_price")
-ames_train2  <- training(split2)
-ames_test2   <- testing(split2)
+data_train2  <- training(split2)
+data_test2   <- testing(split2)
 ```
 
 Untuk mengecek distribusi dari kedua set data, kita dapat mevisualisasikan distribusi dari variabel target pada kedua set tersebut.
 
 ```{r target-vis}
 # training set
-ames_train1 %>%
+data_train1 %>%
   mutate(variant = "Simple") %>%
   bind_rows({
-    ames_train2 %>%
+    data_train2 %>%
       mutate(variant = "Stratified")
   }) %>%
   ggplot(aes(x = sale_price, color = variant)) + 
   geom_density() 
 # test set
-ames_test1 %>%
+data_test1 %>%
   mutate(variant = "Simple") %>%
   bind_rows({
-    ames_test2 %>%
+    data_test2 %>%
       mutate(variant = "Stratified")
   }) %>%
   ggplot(aes(x = sale_price, color = variant)) + 
@@ -156,11 +142,11 @@ Terdapat dua buah fungsi yang digunakan dalam membuat ringkasan data, antara lai
 2. `plot_missing()` : fungsi untuk memvisualisasikan persentase *missing value* pada masing-masing variabel atau kolom data
 
 ```{r}
-skim(ames_train2)
+skim(data_train2)
 ```
 
 ```{r}
-mv_vis <- plot_missing(ames_train2)
+mv_vis <- plot_missing(data_train2)
 ```
 
 Pada dataset, terdapat 2053 baris dan 82 kolom. Pada data terdapat *missing value* pada sejumlah kolom dengan *rate* yang berbeda-beda. Terdapat beberapa pendekan yang dapat digunakan untuk menangani *missing value*, antara lain:
@@ -193,19 +179,19 @@ var_miss
 Untuk melihat varian masing-masing variabel, kita dapat mevisualisasikan data menggunakan histogram dan barplot.
 
 ```{r}
-plot_histogram(ames_train2, ncol = 2L, nrow = 2L)
+plot_histogram(data_train2, ncol = 2L, nrow = 2L)
 ```
 
 Berdasarkan hasil visualisasi histogram pada data numerik, sebagian besar data tidak berdistribusi normal atau tidak simestris.
 
 ```{r}
-plot_bar(ames_train2, ncol=2L, nrow = 2L)
+plot_bar(data_train2, ncol=2L, nrow = 2L)
 ```
 
 Sejumlah kolom pada variabel kategorikal memiliki varian yang mendekati nol. Untuk mengetahui kolom dengan varian mendekati nol atau nol, jalankan sintaks berikut:
 
 ```{r}
-caret::nearZeroVar(ames_train2, saveMetrics = TRUE) %>% 
+caret::nearZeroVar(data_train2, saveMetrics = TRUE) %>% 
   tibble::rownames_to_column() %>% 
   filter(nzv)
 ```
@@ -217,7 +203,7 @@ Setidaknya terdapat 19 kolom dengan varian mendekati nolo atau nol. Membuat vari
 Kovarian dapat divisualisasikan dengan menggunakan heatmap yang mengkode nilai koefisien korelasi berdasarkan warna.
 
 ```{r}
-plot_correlation(ames_train2)
+plot_correlation(data_train2)
 ```
 
 
@@ -274,7 +260,7 @@ Langkah pertama adalah di mana kita menentukan *blueprint*. Dengan proses ini, K
 
 ```{r preprocess}
 
-blueprint <- recipe(sale_price ~., data = ames_train2) %>%
+blueprint <- recipe(sale_price ~., data = data_train2) %>%
   # feature filtering
   step_nzv(all_nominal()) %>%
   # remove feature
@@ -297,15 +283,15 @@ blueprint
 Selanjutnya, *blueprint* yang telah dibuat dilakukan *training* pada data *training*. Perlu diperhatikan, kita tidak melakukan proses *training* pada data *test* untuk mencegah *data leakage*.
 
 ```{r prep}
-prepare <- prep(blueprint, training = ames_train2)
+prepare <- prep(blueprint, training = data_train2)
 prepare
 ```
 
 Langkah terakhir adalah mengaplikasikan *blueprint* pada data *training* dan *test* menggunakan fungsi `bake()`.
 
 ```{r baked}
-baked_train <- bake(prepare, new_data = ames_train2)
-baked_test <- bake(prepare, new_data = ames_test2)
+baked_train <- bake(prepare, new_data = data_train2)
+baked_test <- bake(prepare, new_data = data_test2)
 baked_train
 ```
 

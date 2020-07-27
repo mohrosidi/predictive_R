@@ -2,21 +2,7 @@
 title: "Multivariate Adaptive Regression Splines"
 author: "Moh. Rosidi"
 date: "7/24/2020"
-output: 
-  html_document:
-    number_sections: yes
-    toc: yes
-    toc_depth: 3
-    toc_float:
-      collapsed: no
-    df_print: paged
-    theme: yeti
-    highlight: textmate
-    css: assets/style.css
-  pdf_document:
-    toc: yes
-    toc_depth: '3'
-    latex_engine: xelatex
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -34,7 +20,7 @@ Sebuah dataset terkait data properti yang ada di Ames IA. Dataset ini memiliki 8
 
 ## Library
 
-Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif menggunakan *tree based algorithm*. Paket-paket ditampilkan sebagai berikut:
+Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif menggunakan *mars*. Paket-paket yang digunakan ditampilkan sebagai berikut:
 
 ```{r import-lib}
 # library pembantu
@@ -97,18 +83,18 @@ Dalam proses pembentukan model kali ini, kita akan menggunakan metode kedua deng
 set.seed(123)
 
 split  <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
-ames_train  <- training(split)
-ames_test   <- testing(split)
+data_train  <- training(split)
+data_test   <- testing(split)
 ```
 
 Untuk mengecek distribusi dari kedua set data, kita dapat mevisualisasikan distribusi dari variabel target pada kedua set tersebut.
 
 ```{r target-vis}
 # training set
-ggplot(ames_train, aes(x = Sale_Price)) + 
+ggplot(data_train, aes(x = Sale_Price)) + 
   geom_density() 
 # test set
-ggplot(ames_test, aes(x = Sale_Price)) + 
+ggplot(data_test, aes(x = Sale_Price)) + 
   geom_density() 
 ```
 
@@ -130,15 +116,15 @@ Terdapat dua buah fungsi yang digunakan dalam membuat ringkasan data, antara lai
 
 
 ```{r glimpse}
-glimpse(ames_train)
+glimpse(data_train)
 ```
 
 ```{r skim}
-skim(ames_train)
+skim(data_train)
 ```
 
 ```{r missing-vis}
-plot_missing(ames_train)
+plot_missing(data_train)
 ```
 
 Berdasarkan ringkasan data yang dihasilkan, diketahui dimensi data sebesar 2053 baris dan 74 kolom. Dengan rincian masing-masing kolom, yaitu: 40 kolom dengan jenis data factor dan 34 kolom dengan jenis data numeric. Informasi lain yang diketahui adalah seluruh kolom dalam data tidak memiliki *missing value*.
@@ -148,17 +134,17 @@ Berdasarkan ringkasan data yang dihasilkan, diketahui dimensi data sebesar 2053 
 Variasi dari tiap variabel dapat divisualisasikan dengan menggunakan histogram (numerik) dan baplot (kategorikal).
 
 ```{r hist}
-plot_histogram(ames_train, ncol = 2L, nrow = 2L)
+plot_histogram(data_train, ncol = 2L, nrow = 2L)
 ```
 
 ```{r bar}
-plot_bar(ames_train, ncol = 2L, nrow = 2L)
+plot_bar(data_train, ncol = 2L, nrow = 2L)
 ```
 
 Berdasarkan hasil visualisasi diperoleh bahwa sebagian besar variabel numerik memiliki distribusi yang tidak simetris. Sedangkan pada variabel kategorikal diketahui bahwa terdapat beberapa variabel yang memiliki variasi rendah atau mendekati nol. Untuk mengetahui variabel dengan variabilitas mendekati nol atau nol, dapat menggunakan sintaks berikut:
 
 ```{r nzv}
-nzvar <- nearZeroVar(ames_train, saveMetrics = TRUE) %>% 
+nzvar <- nearZeroVar(data_train, saveMetrics = TRUE) %>% 
   rownames_to_column() %>% 
   filter(nzv)
 nzvar
@@ -167,7 +153,7 @@ nzvar
 Berikut adalah ringkasan data pada variabel yang tidak memiliki variasi yang mendekati nol.
 
 ```{r wt-nzv}
-without_nzvar <- select(ames_train, !nzvar$rowname)
+without_nzvar <- select(data_train, !nzvar$rowname)
 skim(without_nzvar)
 ```
 
@@ -175,13 +161,13 @@ Berikut adalah tabulasi observasi pada masing-masing variabel yang memiliki juml
 
 ```{r count-nominal}
 # MS_SubClass 
-count(ames_train, MS_SubClass) %>% arrange(n)
+count(data_train, MS_SubClass) %>% arrange(n)
 # Neighborhood
-count(ames_train, Neighborhood) %>% arrange(n)
+count(data_train, Neighborhood) %>% arrange(n)
 # Neighborhood
-count(ames_train, Exterior_1st) %>% arrange(n)
+count(data_train, Exterior_1st) %>% arrange(n)
 # Exterior_2nd
-count(ames_train, Exterior_2nd) %>% arrange(n)
+count(data_train, Exterior_2nd) %>% arrange(n)
 ```
 
 ## Kovarian
@@ -189,12 +175,12 @@ count(ames_train, Exterior_2nd) %>% arrange(n)
 Kovarian dapat dicek melalui visualisasi *heatmap* koefisien korelasi (numerik) atau menggunakan *boxplot* (kontinu vs kategorikal)
 
 ```{r heatmap}
-plot_correlation(ames_train, type = "continuous", 
+plot_correlation(data_train, type = "continuous", 
                  cor_args = list(method = "spearman"))
 ```
 
 ```{r boxplot}
-plot_boxplot(ames_train, by = "Sale_Price", ncol = 2, nrow = 1)
+plot_boxplot(data_train, by = "Sale_Price", ncol = 2, nrow = 1)
 ```
 
 # Target and Feature Engineering
@@ -239,7 +225,7 @@ Ada tiga langkah utama dalam membuat dan menerapkan rekayasa fitur dengan `recip
 Langkah pertama adalah di mana kita menentukan *blueprint*. Dengan proses ini, Kita memberikan formula model yang ingin kita buat (variabel target, fitur, dan data yang menjadi dasarnya) dengan fungsi `recipe()` dan kemudian kita secara bertahap menambahkan langkah-langkah rekayasa fitur dengan fungsi `step_xxx()`. 
 
 ```{r preprocess}
-blueprint <- recipe(Sale_Price ~., data = ames_train) %>%
+blueprint <- recipe(Sale_Price ~., data = data_train) %>%
   # feature filtering
   step_nzv(all_nominal()) %>%
   # label encoding
@@ -255,15 +241,15 @@ blueprint
 Selanjutnya, *blueprint* yang telah dibuat dilakukan *training* pada data *training*. 
 
 ```{r prep}
-prepare <- prep(blueprint, training = ames_train)
+prepare <- prep(blueprint, training = data_train)
 prepare
 ```
 
 Langkah terakhir adalah mengaplikasikan *blueprint* pada data *training* dan *test* menggunakan fungsi `bake()`.
 
 ```{r baked}
-baked_train <- bake(prepare, new_data = ames_train)
-baked_test <- bake(prepare, new_data = ames_test)
+baked_train <- bake(prepare, new_data = data_train)
+baked_test <- bake(prepare, new_data = data_test)
 baked_train
 ```
 
@@ -320,9 +306,9 @@ Setelah parameter *tuning* dan validasi silang dispesifikasikan, proses training
 
 ```{r mars-fit}
 system.time(
-mars_fit_cv <- train(
+model_fit_cv <- train(
   blueprint, 
-  data = ames_train, 
+  data = data_train, 
   method = "earth", 
   trControl = cv, 
   tuneGrid = hyper_grid,
@@ -330,16 +316,16 @@ mars_fit_cv <- train(
   )
 )
 
-mars_fit_cv
+model_fit_cv
 ```
 
 
 
-Proses *training* berlangsung selama 180.537 detik dengan 30 buah model yang terbentuk. Model terbaik dipilih berdasarkan nilai **RMSE** terbesar. Berdasarkan kriteria tersebut model yang terpilih adalalah model yang memiliki nilai `nprune` = `r mars_fit_cv$bestTune[1,1]` dan `degree` = `r mars_fit_cv$bestTune[1,2]`. Nilai **RMSE** rata-rata model terbaik adalah sebagai berikut:
+Proses *training* berlangsung selama 180.537 detik dengan 30 buah model yang terbentuk. Model terbaik dipilih berdasarkan nilai **RMSE** terbesar. Berdasarkan kriteria tersebut model yang terpilih adalalah model yang memiliki nilai `nprune` = `r model_fit_cv$bestTune[1,1]` dan `degree` = `r model_fit_cv$bestTune[1,2]`. Nilai **RMSE** rata-rata model terbaik adalah sebagai berikut:
 
 
 ```{r mars-rmse}
-mars_rmse <- mars_fit_cv$results %>%
+mars_rmse <- model_fit_cv$results %>%
   arrange(RMSE) %>%
   slice(1) %>%
   select(RMSE) %>%
@@ -353,7 +339,7 @@ Visualisasi hubungan antar parameter  dan **RMSE** ditampilkan pada gambar berik
 
 ```{r mars-cv-vis, chace = TRUE}
 # visualisasi
-ggplot(mars_fit_cv)
+ggplot(model_fit_cv)
 ```
 
 
@@ -362,26 +348,26 @@ ggplot(mars_fit_cv)
 Model terbaik dari hasil proses validasi silang selanjutnya diekstrak. Hal ini berguna untuk mengurangi ukuran model yang tersimpan. Secara default fungsi `train()` akan mengembalikan model dengan performa terbaik. Namun, terdapat sejumlah komponen lain dalam objek yang terbentuk, seperti: hasil prediksi, ringkasan training, dll. yang membuat ukuran objek menjadi besar. Untuk menguranginya, kita perlu mengambil objek model final dari objek hasil validasi silang.
 
 ```{r mars-final}
-mars_fit <- mars_fit_cv$finalModel
+model_fit <- model_fit_cv$finalModel
 ```
 
 Ringkasan model ditampilkan menggunakan fungsi `summary()`.
 
 ```{r}
-summary(mars_fit)
+summary(model_fit)
 ```
 
 
 Cara lain untuk melihat performa sebuah model regresi adalah dengan melihat visualisasi nilai residunya. Berikut adalah sintaks yang digunakan:
 
 ```{r mars-res-vis}
-plot(mars_fit)
+plot(model_fit)
 ```
 
 Model yang dihasilkan selanjutnya dapat kita uji lagi menggunakan data baru. Berikut adalah perhitungan nilai **RMSE** model pada data *test*.
 
 ```{r mars-rmse-test}
-pred_test <- predict(mars_fit, baked_test)
+pred_test <- predict(model_fit, baked_test)
 
 ## RMSE
 rmse <- RMSE(pred_test, baked_test$Sale_Price, na.rm = TRUE)
@@ -396,7 +382,7 @@ Berdasarkan hasil evaluasi diperoleh nilai akurasi sebesar `r rmse`
 Untuk mengetahui variabel yang paling berpengaruh secara global terhadap hasil prediksi model, kita dapat menggunakan plot *variable importance*.
 
 ```{r mars-vip}
-vi <- vip(mars_fit_cv, num_features = 10)
+vi <- vip(model_fit_cv, num_features = 10)
 vi
 ```
 
@@ -404,17 +390,17 @@ vi
 Berdasarkan terdapat 4 buah variabel yang berpengaruh besar terhadap prediksi yang dihasilkan oleh model, antara lain: `r as.character(vi$data[1:4,1] %>% pull())`. Untuk melihat efek dari masing-masing variabel terhadap variabel respon, kita dapat menggunakan *partial dependence plot*.
 
 ```{r mars-pdp}
-p1 <- pdp::partial(mars_fit_cv, pred.var = as.character(vi$data[1,1] %>% pull())) %>% 
+p1 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[1,1] %>% pull())) %>% 
   autoplot() 
 
-p2 <- pdp::partial(mars_fit_cv, pred.var = as.character(vi$data[2,1] %>% pull())) %>% 
+p2 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[2,1] %>% pull())) %>% 
   autoplot()
 
-p3 <- pdp::partial(mars_fit_cv, pred.var = as.character(vi$data[3,1] %>% pull())) %>% 
+p3 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[3,1] %>% pull())) %>% 
   autoplot()
   
 
-p4 <- pdp::partial(mars_fit_cv, pred.var = as.character(vi$data[4,1] %>% pull())) %>% 
+p4 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[4,1] %>% pull())) %>% 
   autoplot()
 
 grid.arrange(p1, p2, p3, p4, nrow = 2)

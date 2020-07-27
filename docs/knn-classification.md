@@ -82,20 +82,20 @@ Kolom-kolom pada dataset tersebut, antara lain:
 ## Library
 
 Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif
-menggunakan *k-nearest neighbors*. Paket-paket yang digunakan ditampilkan sebagai
+menggunakan *k-nearest neighbors*. Paket-paket ditampilkan sebagai
 berikut:
 
 ``` r
 # library pembantu
-library(DMwR)
-library(modeldata)
-library(MLmetrics)
-library(tidyverse)
 library(rsample)
 library(recipes)
 library(DataExplorer)
 library(skimr)
-library(magrittr)
+library(DMwR)
+library(modeldata)
+library(MLmetrics)
+library(e1071)
+library(tidyverse)
 
 # library model
 library(caret)
@@ -107,18 +107,20 @@ library(pdp)
 
 **Paket Pembantu**
 
-1.  `foreach` : paket untuk melakukan *parallel computing*. Diperlukan
-    untuk melakukan *fitting* model *parallel random forest*
-2.  `import` : paket yang menangani *dependency* fungsi antar paket
-    dalam proses *fitting* model *parallel random forest*
-3.  `tidyverse` : kumpulan paket dalam bidang data science
-4.  `rsample` : membantu proses *data splitting*
-5.  `recipes`: membantu proses data pra-pemrosesan
-6.  `DataExplorer` : EDA
-7.  `skimr` : membuat ringkasan data
-8. `DMwR` : paket untuk melakukan sampling “smote”
-9. `modeldata` : kumpulan dataset untuk membuat model *machine
+1.  `tidyverse` : kumpulan paket dalam bidang data science
+2.  `rsample` : membantu proses *data splitting*
+3.  `recipes`: membantu proses data pra-pemrosesan
+4.  `DataExplorer` : EDA
+5.  `skimr` : membuat ringkasan data
+6.  `DMwR` : paket untuk melakukan sampling “smote”
+7.  `modeldata` : kumpulan dataset untuk membuat model *machine
     learning*
+8.  `MLmetrics` : paket pembantu dalam perhitungan metrik klasifikasi
+    multi kelas
+9.  `e1071` : paket yang digunakan untuk *latent class analysis, short
+    time Fourier transform, fuzzy clustering, support vector machines,
+    shortest path computation, bagged clustering, naive Bayes
+    classifier,* dll.
 
 **Paket untuk Membangun Model**
 
@@ -137,21 +139,7 @@ digunakan untuk membaca file dengan ekstensi `.csv`.
 
 ``` r
 spotify <- read_csv("data/spotify.csv")
-```
 
-    ## Parsed with column specification:
-    ## cols(
-    ##   .default = col_double(),
-    ##   id = col_character(),
-    ##   name = col_character(),
-    ##   album.id = col_character(),
-    ##   album.name = col_character(),
-    ##   artist = col_character()
-    ## )
-
-    ## See spec(...) for full column specifications.
-
-``` r
 # data cleaning
 key_labs = c('c', 'c#', 'd', 'd#', 'e', 'f', 
              'f#', 'g', 'g#', 'a', 'a#', 'b')
@@ -192,8 +180,8 @@ variabel target (`artist`).
 set.seed(123)
 
 split  <- initial_split(spotify, prop = 0.8, strata = "artist")
-spotify_train  <- training(split)
-spotify_test   <- testing(split)
+data_train  <- training(split)
+data_test   <- testing(split)
 ```
 
 Untuk mengecek distribusi dari kedua set data, kita dapat
@@ -202,19 +190,19 @@ tersebut.
 
 ``` r
 # training set
-ggplot(spotify_train, aes(x = artist)) + 
+ggplot(data_train, aes(x = artist)) + 
   geom_bar() 
 ```
 
-![](temp_files/figure-gfm/target-vis-1.png)<!-- -->
+![](knn-classification_files/figure-gfm/target-vis-1.png)<!-- -->
 
 ``` r
 # test set
-ggplot(spotify_test, aes(x = artist)) + 
+ggplot(data_test, aes(x = artist)) + 
   geom_bar() 
 ```
 
-![](temp_files/figure-gfm/target-vis-2.png)<!-- -->
+![](knn-classification_files/figure-gfm/target-vis-2.png)<!-- -->
 
 # Analisis Data Eksploratif
 
@@ -244,42 +232,42 @@ antara lain:
 <!-- end list -->
 
 ``` r
-glimpse(spotify_train)
+glimpse(data_train)
 ```
 
     ## Rows: 982
     ## Columns: 15
-    ## $ popularity       <dbl> 54, 74, 64, 54, 55, 53, 54, 68, 53, 53, 55, 70, 68, …
-    ## $ duration_ms      <dbl> 239751, 199849, 190642, 196120, 193603, 183427, 2104…
-    ## $ danceability     <dbl> 0.526, 0.799, 0.655, 0.759, 0.934, 0.812, 0.604, 0.6…
-    ## $ energy           <dbl> 0.608, 0.597, 0.603, 0.604, 0.564, 0.670, 0.405, 0.4…
-    ## $ key              <fct> a#, f, g#, g#, b, f, a#, c, c, c#, c, g, a, g#, e, d…
-    ## $ loudness         <dbl> -5.776, -5.131, -5.014, -6.663, -4.806, -4.008, -8.2…
-    ## $ mode             <fct> minor, minor, major, minor, major, major, major, maj…
-    ## $ speechiness      <dbl> 0.1690, 0.0611, 0.0555, 0.0510, 0.0638, 0.0901, 0.05…
-    ## $ acousticness     <dbl> 0.1270, 0.0788, 0.0959, 0.1410, 0.4610, 0.1720, 0.73…
-    ## $ instrumentalness <dbl> 0.00e+00, 5.66e-06, 0.00e+00, 0.00e+00, 1.84e-05, 3.…
-    ## $ liveness         <dbl> 0.1130, 0.1000, 0.1070, 0.1490, 0.1010, 0.2530, 0.10…
-    ## $ valence          <dbl> 0.3720, 0.4190, 0.4520, 0.4180, 0.5430, 0.6540, 0.08…
-    ## $ tempo            <dbl> 93.311, 110.001, 126.088, 121.096, 115.092, 125.087,…
-    ## $ time_signature   <fct> 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4…
-    ## $ artist           <fct> Maroon_5, Maroon_5, Maroon_5, Maroon_5, Maroon_5, Ma…
+    ## $ popularity       <dbl> 54, 74, 64, 54, 55, 53, 54, 68, 53, 53, 55, 70, 68...
+    ## $ duration_ms      <dbl> 239751, 199849, 190642, 196120, 193603, 183427, 21...
+    ## $ danceability     <dbl> 0.526, 0.799, 0.655, 0.759, 0.934, 0.812, 0.604, 0...
+    ## $ energy           <dbl> 0.608, 0.597, 0.603, 0.604, 0.564, 0.670, 0.405, 0...
+    ## $ key              <fct> a#, f, g#, g#, b, f, a#, c, c, c#, c, g, a, g#, e,...
+    ## $ loudness         <dbl> -5.776, -5.131, -5.014, -6.663, -4.806, -4.008, -8...
+    ## $ mode             <fct> minor, minor, major, minor, major, major, major, m...
+    ## $ speechiness      <dbl> 0.1690, 0.0611, 0.0555, 0.0510, 0.0638, 0.0901, 0....
+    ## $ acousticness     <dbl> 0.1270, 0.0788, 0.0959, 0.1410, 0.4610, 0.1720, 0....
+    ## $ instrumentalness <dbl> 0.00e+00, 5.66e-06, 0.00e+00, 0.00e+00, 1.84e-05, ...
+    ## $ liveness         <dbl> 0.1130, 0.1000, 0.1070, 0.1490, 0.1010, 0.2530, 0....
+    ## $ valence          <dbl> 0.3720, 0.4190, 0.4520, 0.4180, 0.5430, 0.6540, 0....
+    ## $ tempo            <dbl> 93.311, 110.001, 126.088, 121.096, 115.092, 125.08...
+    ## $ time_signature   <fct> 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,...
+    ## $ artist           <fct> Maroon_5, Maroon_5, Maroon_5, Maroon_5, Maroon_5, ...
 
 ``` r
-skim(spotify_train)
+skim(data_train)
 ```
 
-|                                                  |                |
-| :----------------------------------------------- | :------------- |
-| Name                                             | spotify\_train |
-| Number of rows                                   | 982            |
-| Number of columns                                | 15             |
-| \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_   |                |
-| Column type frequency:                           |                |
-| factor                                           | 4              |
-| numeric                                          | 11             |
-| \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_ |                |
-| Group variables                                  | None           |
+|                                                  |             |
+| :----------------------------------------------- | :---------- |
+| Name                                             | data\_train |
+| Number of rows                                   | 982         |
+| Number of columns                                | 15          |
+| \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_   |             |
+| Column type frequency:                           |             |
+| factor                                           | 4           |
+| numeric                                          | 11          |
+| \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_ |             |
+| Group variables                                  | None        |
 
 Data summary
 
@@ -309,10 +297,10 @@ Data summary
 | tempo            |          0 |              1 |    117.65 |     30.19 |    0.00 |     95.00 |    116.05 |    139.96 |     207.55 | ▁▂▇▆▁ |
 
 ``` r
-plot_missing(spotify_train)
+plot_missing(data_train)
 ```
 
-![](temp_files/figure-gfm/missing-vis-1.png)<!-- -->
+![](knn-classification_files/figure-gfm/missing-vis-1.png)<!-- -->
 
 Berdasarkan ringkasan data yang dihasilkan, diketahui dimensi data
 sebesar 982 baris dan 15 kolom. Dengan rincian masing-masing kolom,
@@ -326,16 +314,16 @@ Variasi dari tiap variabel dapat divisualisasikan dengan menggunakan
 histogram (numerik) dan baplot (kategorikal).
 
 ``` r
-plot_histogram(spotify_train, ncol = 2L, nrow = 2L)
+plot_histogram(data_train, ncol = 2L, nrow = 2L)
 ```
 
-![](temp_files/figure-gfm/hist-1.png)<!-- -->![](temp_files/figure-gfm/hist-2.png)<!-- -->![](temp_files/figure-gfm/hist-3.png)<!-- -->
+![](knn-classification_files/figure-gfm/hist-1.png)<!-- -->![](knn-classification_files/figure-gfm/hist-2.png)<!-- -->![](knn-classification_files/figure-gfm/hist-3.png)<!-- -->
 
 ``` r
-plot_bar(spotify_train, ncol = 2L, nrow = 2L)
+plot_bar(data_train, ncol = 2L, nrow = 2L)
 ```
 
-![](temp_files/figure-gfm/bar-1.png)<!-- -->
+![](knn-classification_files/figure-gfm/bar-1.png)<!-- -->
 
 Berdasarkan hasil visualisasi diperoleh bahwa sebagian besar variabel
 numerik memiliki distribusi yang tidak simetris. Sedangkan pada variabel
@@ -344,7 +332,7 @@ mendekati nol atau nol. Untuk mengetahui variabel dengan variasi
 mendekati nol atau nol, dapat menggunakan sintaks berikut:
 
 ``` r
-nzvar <- nearZeroVar(spotify_train, saveMetrics = TRUE) %>% 
+nzvar <- nearZeroVar(data_train, saveMetrics = TRUE) %>% 
   rownames_to_column() %>% 
   filter(nzv)
 nzvar
@@ -358,11 +346,11 @@ nzvar
 Kovarian dapat dicek melalui visualisasi *heatmap* koefisien korelasi.
 
 ``` r
-plot_correlation(spotify_train, 
+plot_correlation(data_train, 
                  cor_args = list(method = "spearman"))
 ```
 
-![](temp_files/figure-gfm/heatmap-1.png)<!-- -->
+![](knn-classification_files/figure-gfm/heatmap-1.png)<!-- -->
 
 # Target and Feature Engineering
 
@@ -440,7 +428,7 @@ dengan `recipe`:
 <!-- end list -->
 
 ``` r
-blueprint <- recipe(artist ~ ., data = spotify_train) %>%
+blueprint <- recipe(artist ~ ., data = data_train) %>%
   step_nzv(all_nominal())  %>%
   
   # 2. imputation to missing value
@@ -485,7 +473,7 @@ data *training*. Perlu diperhatikan, kita tidak melakukan proses
 *training* pada data *test* untuk mencegah *data leakage*.
 
 ``` r
-prepare <- prep(blueprint, training = spotify_train)
+prepare <- prep(blueprint, training = data_train)
 prepare
 ```
 
@@ -510,8 +498,8 @@ Langkah terakhir adalah mengaplikasikan *blueprint* pada data *training*
 dan *test* menggunakan fungsi `bake()`.
 
 ``` r
-baked_train <- bake(prepare, new_data = spotify_train)
-baked_test <- bake(prepare, new_data = spotify_test)
+baked_train <- bake(prepare, new_data = data_train)
+baked_test <- bake(prepare, new_data = data_test)
 baked_train
 ```
 
@@ -528,7 +516,7 @@ baked_train
     ##  8       2.76     -0.160         0.611 -0.793    0.369      -0.211         1.03 
     ##  9       1.67      3.80          1.34   0.698    0.455      -0.173        -0.300
     ## 10       1.67     -0.0152        1.51  -0.0880   0.772      -0.196        -0.378
-    ## # … with 972 more rows, and 21 more variables: instrumentalness <dbl>,
+    ## # ... with 972 more rows, and 21 more variables: instrumentalness <dbl>,
     ## #   liveness <dbl>, valence <dbl>, tempo <dbl>, artist <fct>, key_c. <dbl>,
     ## #   key_d <dbl>, key_d. <dbl>, key_e <dbl>, key_f <dbl>, key_f. <dbl>,
     ## #   key_g <dbl>, key_g. <dbl>, key_a <dbl>, key_a. <dbl>, key_b <dbl>,
@@ -584,9 +572,9 @@ training dilakukan menggunakan fungsi `train()`.
 
 ``` r
 system.time(
-knn_fit_cv <- train(
+model_fit_cv <- train(
   blueprint, 
-  data = spotify_train, 
+  data = data_train, 
   method = "knn", 
   trControl = cv, 
   tuneGrid = hyper_grid,
@@ -596,10 +584,10 @@ knn_fit_cv <- train(
 ```
 
     ##    user  system elapsed 
-    ##  62.794   0.109  63.116
+    ##  216.11    2.69  248.70
 
 ``` r
-knn_fit_cv
+model_fit_cv
 ```
 
     ## k-Nearest Neighbors 
@@ -709,13 +697,14 @@ knn_fit_cv
     ## AUC was used to select the optimal model using the largest value.
     ## The final value used for the model was k = 29.
 
-Model terbaik dipilih berdasarkan nilai **AUC**
+Proses *training* berlangsung selama 178.379 detik dengan 72 buah model
+yang terbentuk. Model terbaik dipilih berdasarkan nilai **AUC**
 terbesar. Berdasarkan kriteria tersebut model yang terpilih adalalah
 model yang memiliki nilai `k` = 29. Nilai **AUC** rata-rata model
 terbaik adalah sebagai berikut:
 
 ``` r
-knn_roc <- knn_fit_cv$results %>%
+knn_roc <- model_fit_cv$results %>%
   arrange(-AUC) %>%
   slice(1) %>%.[,"AUC"] 
 knn_roc
@@ -732,10 +721,10 @@ berikut:
 
 ``` r
 # visualisasi
-ggplot(knn_fit_cv)
+ggplot(model_fit_cv)
 ```
 
-![](temp_files/figure-gfm/knn-cv-vis-1.png)<!-- -->
+![](knn-classification_files/figure-gfm/knn-cv-vis-1.png)<!-- -->
 
 ## Model Akhir
 
@@ -748,13 +737,13 @@ membuat ukuran objek menjadi besar. Untuk menguranginya, kita perlu
 mengambil objek model final dari objek hasil validasi silang.
 
 ``` r
-knn_fit <- knn_fit_cv$finalModel
+model_fit <- model_fit_cv$finalModel
 ```
 
 Ringkasan model final *KNN* ditampilkan menggunakan sintaks berikut:
 
 ``` r
-knn_fit
+model_fit
 ```
 
     ## 29-nearest neighbor model
@@ -768,7 +757,7 @@ baru. Berikut adalah perhitungan nilai **Akurasi** model pada data
 *test*.
 
 ``` r
-pred_test <- predict(knn_fit, {baked_test %>% 
+pred_test <- predict(model_fit, {baked_test %>% 
     dplyr::select(!artist)})
 
 pred_test <-
@@ -781,11 +770,7 @@ pred_test <-
                              labels = c("Jason_Mraz", "Maroon_5", "Queen" ))) %>%
   dplyr::select(prediction) %>%
   pull()
-```
 
-    ## `summarise()` ungrouping output (override with `.groups` argument)
-
-``` r
 ## RMSE
 cm <- confusionMatrix(pred_test, baked_test$artist)
 cm
@@ -830,11 +815,92 @@ Untuk mengetahui variabel yang paling berpengaruh secara global terhadap
 hasil prediksi model, kita dapat menggunakan plot *variable importance*.
 
 ``` r
-vi <- varImp(knn_fit_cv, num_features = 10) %>% ggplot()
-vi
+vi <- varImp(model_fit_cv, num_features = 10) %>% ggplot()
+vi$data[]
 ```
 
-![](temp_files/figure-gfm/knn-vip-1.png)<!-- -->
+    ##     Importance      Class           Feature
+    ## 1   81.5202716 Jason_Mraz      danceability
+    ## 2   83.3818202 Jason_Mraz  instrumentalness
+    ## 3   93.9503651 Jason_Mraz      acousticness
+    ## 4   78.6374135 Jason_Mraz        popularity
+    ## 5   78.3384545 Jason_Mraz          loudness
+    ## 6   70.3932775 Jason_Mraz       duration_ms
+    ## 7   62.3165073 Jason_Mraz            energy
+    ## 8   36.6611433 Jason_Mraz           valence
+    ## 9   35.3837684 Jason_Mraz          liveness
+    ## 10  23.5194029 Jason_Mraz       speechiness
+    ## 11  25.5721295 Jason_Mraz        mode_major
+    ## 12  21.9421918 Jason_Mraz time_signature_X4
+    ## 13  16.8513052 Jason_Mraz             key_d
+    ## 14   9.8813902 Jason_Mraz             key_a
+    ## 15  14.5786948 Jason_Mraz            key_c.
+    ## 16  12.6848972 Jason_Mraz time_signature_X5
+    ## 17   8.6016941 Jason_Mraz time_signature_X3
+    ## 18  10.2310783 Jason_Mraz             key_b
+    ## 19   6.7095671 Jason_Mraz            key_a.
+    ## 20   9.1490455 Jason_Mraz             key_f
+    ## 21   7.0225759 Jason_Mraz            key_g.
+    ## 22   5.2966812 Jason_Mraz            key_f.
+    ## 23   5.2756287 Jason_Mraz            key_d.
+    ## 24   2.1536280 Jason_Mraz             tempo
+    ## 25   3.1372135 Jason_Mraz             key_g
+    ## 26   4.4765338 Jason_Mraz             key_e
+    ## 27   0.3799807 Jason_Mraz time_signature_X1
+    ## 28 100.0000000   Maroon_5      danceability
+    ## 29  99.6473107   Maroon_5  instrumentalness
+    ## 30  93.9503651   Maroon_5      acousticness
+    ## 31  34.0144364   Maroon_5        popularity
+    ## 32  78.3384545   Maroon_5          loudness
+    ## 33  70.3932775   Maroon_5       duration_ms
+    ## 34  62.3165073   Maroon_5            energy
+    ## 35  60.4799093   Maroon_5           valence
+    ## 36  42.9903010   Maroon_5          liveness
+    ## 37  38.7349372   Maroon_5       speechiness
+    ## 38  32.6972331   Maroon_5        mode_major
+    ## 39  21.9421918   Maroon_5 time_signature_X4
+    ## 40  21.5791242   Maroon_5             key_d
+    ## 41  18.2516690   Maroon_5             key_a
+    ## 42  14.5786948   Maroon_5            key_c.
+    ## 43  12.6848972   Maroon_5 time_signature_X5
+    ## 44  10.5470882   Maroon_5 time_signature_X3
+    ## 45  10.0117563   Maroon_5             key_b
+    ## 46  10.0642398   Maroon_5            key_a.
+    ## 47   9.1490455   Maroon_5             key_f
+    ## 48   7.0225759   Maroon_5            key_g.
+    ## 49   2.9222824   Maroon_5            key_f.
+    ## 50   5.2756287   Maroon_5            key_d.
+    ## 51   5.1370870   Maroon_5             tempo
+    ## 52   5.0825041   Maroon_5             key_g
+    ## 53   4.4765338   Maroon_5             key_e
+    ## 54   0.3799807   Maroon_5 time_signature_X1
+    ## 55 100.0000000      Queen      danceability
+    ## 56  99.6473107      Queen  instrumentalness
+    ## 57  57.6787135      Queen      acousticness
+    ## 58  78.6374135      Queen        popularity
+    ## 59  77.1570727      Queen          loudness
+    ## 60  53.8583913      Queen       duration_ms
+    ## 61  43.1716575      Queen            energy
+    ## 62  60.4799093      Queen           valence
+    ## 63  42.9903010      Queen          liveness
+    ## 64  38.7349372      Queen       speechiness
+    ## 65  32.6972331      Queen        mode_major
+    ## 66  14.6743922      Queen time_signature_X4
+    ## 67  21.5791242      Queen             key_d
+    ## 68  18.2516690      Queen             key_a
+    ## 69  12.9865222      Queen            key_c.
+    ## 70   9.2650710      Queen time_signature_X5
+    ## 71  10.5470882      Queen time_signature_X3
+    ## 72  10.2310783      Queen             key_b
+    ## 73  10.0642398      Queen            key_a.
+    ## 74   8.6389057      Queen             key_f
+    ## 75   4.8095898      Queen            key_g.
+    ## 76   5.2966812      Queen            key_f.
+    ## 77   3.6108514      Queen            key_d.
+    ## 78   5.1370870      Queen             tempo
+    ## 79   5.0825041      Queen             key_g
+    ## 80   2.9713064      Queen             key_e
+    ## 81   0.0000000      Queen time_signature_X1
 
 Berdasarkan terdapat 4 buah variabel yang berpengaruh besar terhadap
 prediksi yang dihasilkan oleh model, antara lain: danceability,
@@ -843,40 +909,22 @@ masing-masing variabel terhadap variabel respon, kita dapat menggunakan
 *partial dependence plot*.
 
 ``` r
-p1 <- pdp::partial(knn_fit_cv, pred.var = as.character(vi$data[1, 3])) %>% 
+p1 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[1, 3])) %>% 
   autoplot() 
 
-p2 <- pdp::partial(knn_fit_cv, pred.var = as.character(vi$data[2, 3])) %>% 
+p2 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[2, 3])) %>% 
   autoplot()
 
-p3 <- pdp::partial(knn_fit_cv, pred.var = as.character(vi$data[3, 3])) %>% 
+p3 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[3, 3])) %>% 
   autoplot()
   
 
-p4 <- pdp::partial(knn_fit_cv, pred.var = as.character(vi$data[4, 3])) %>% 
+p4 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[4, 3])) %>% 
   autoplot()
 
 grid.arrange(p1, p2, p3, p4, nrow = 2)
 ```
 
-    ## Warning: Use of `object[[1L]]` is discouraged. Use `.data[[1L]]` instead.
+![](knn-classification_files/figure-gfm/knn-pdp1-1.png)<!-- -->
 
-    ## Warning: Use of `object[["yhat"]]` is discouraged. Use `.data[["yhat"]]`
-    ## instead.
-
-    ## Warning: Use of `object[[1L]]` is discouraged. Use `.data[[1L]]` instead.
-
-    ## Warning: Use of `object[["yhat"]]` is discouraged. Use `.data[["yhat"]]`
-    ## instead.
-
-    ## Warning: Use of `object[[1L]]` is discouraged. Use `.data[[1L]]` instead.
-
-    ## Warning: Use of `object[["yhat"]]` is discouraged. Use `.data[["yhat"]]`
-    ## instead.
-
-    ## Warning: Use of `object[[1L]]` is discouraged. Use `.data[[1L]]` instead.
-
-    ## Warning: Use of `object[["yhat"]]` is discouraged. Use `.data[["yhat"]]`
-    ## instead.
-
-![](temp_files/figure-gfm/knn-pdp-1.png)<!-- -->
+grid.arrange(p1, p2, p3, p4, nrow = 2) \`\`\`

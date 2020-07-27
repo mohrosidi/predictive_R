@@ -2,22 +2,7 @@
 title: "Naive Bayes Classification"
 author: "Moh. Rosidi"
 date: "7/23/2020"
-output:
-  html_document:
-    number_sections: yes
-    toc: yes
-    toc_depth: 3
-    toc_float:
-      collapsed: no
-    df_print: paged
-    theme: yeti
-    highlight: textmate
-    css: assets/style.css
-  pdf_document:
-    toc: yes
-    toc_depth: '3'
-    latex_engine: xelatex
-
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -55,11 +40,10 @@ Kolom-kolom pada dataset tersebut, antara lain:
 
 ## Library
 
-Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif menggunakan *tree based algorithm*. Paket-paket ditampilkan sebagai berikut:
+Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif menggunakan *naive bayes*. Paket-paket yang digunakan ditampilkan sebagai berikut:
 
-```{r import-lib, cache=TRUE}
+```{r import-lib}
 # library pembantu
-library(tidyverse)
 library(rsample)
 library(recipes)
 library(DataExplorer)
@@ -67,6 +51,7 @@ library(skimr)
 library(DMwR)
 library(modeldata)
 library(MLmetrics)
+library(tidyverse)
 
 # library model
 library(caret)
@@ -79,15 +64,14 @@ library(pdp)
 
 **Paket Pembantu**
 
-3. `foreach` : paket untuk melakukan *parallel computing*. Diperlukan untuk melakukan *fitting* model *parallel random forest*
-4. `import` : paket yang menangani *dependency* fungsi antar paket dalam proses *fitting* model *parallel random forest*
-5. `tidyverse` : kumpulan paket dalam bidang data science
-6. `rsample` : membantu proses *data splitting*
-7. `recipes`: membantu proses data pra-pemrosesan
-8. `DataExplorer` : EDA
-9. `skimr` : membuat ringkasan data
-10. `DMwR` : paket untuk melakukan sampling "smote"
-11. `modeldata` : kumpulan dataset untuk membuat model *machine learning*
+1. `tidyverse` : kumpulan paket dalam bidang data science
+2. `rsample` : membantu proses *data splitting*
+3. `recipes`: membantu proses data pra-pemrosesan
+4. `DataExplorer` : EDA
+5. `skimr` : membuat ringkasan data
+6. `DMwR` : paket untuk melakukan sampling "smote"
+7. `modeldata` : kumpulan dataset untuk membuat model *machine learning*
+8. `MLmetrics` : paket pembantu dalam perhitungan metrik klasifikasi multi kelas
 
 **Paket untuk Membangun Model**
 
@@ -103,7 +87,7 @@ library(pdp)
 
 Import dataset dilakukan dengan menggunakan fungsi `readr()`. Fungsi ini digunakan untuk membaca file dengan ekstensi `.csv`.
 
-```{r import-data, cache=TRUE}
+```{r import-data}
 spotify <- read_csv("data/spotify.csv")
 
 # data cleaning
@@ -131,22 +115,22 @@ Terdapat dua buah jenis sampling pada tahapan *data splitting*, yaitu:
 
 Dalam proses pembentukan model kali ini, kita akan menggunakan metode kedua dengan tujuan untuk memperoleh distribusi yang seragam dari variabel target (`artist`).
 
-```{r data-split, cache=TRUE}
+```{r data-split}
 set.seed(123)
 
 split  <- initial_split(spotify, prop = 0.8, strata = "artist")
-spotify_train  <- training(split)
-spotify_test   <- testing(split)
+data_train  <- training(split)
+data_test   <- testing(split)
 ```
 
 Untuk mengecek distribusi dari kedua set data, kita dapat mevisualisasikan distribusi dari variabel target pada kedua set tersebut.
 
-```{r target-vis, cache=TRUE}
+```{r target-vis}
 # training set
-ggplot(spotify_train, aes(x = artist)) + 
+ggplot(data_train, aes(x = artist)) + 
   geom_bar() 
 # test set
-ggplot(spotify_test, aes(x = artist)) + 
+ggplot(data_test, aes(x = artist)) + 
   geom_bar() 
 ```
 
@@ -167,16 +151,16 @@ Terdapat dua buah fungsi yang digunakan dalam membuat ringkasan data, antara lai
 3. `plot_missing()` : fungsi untuk memvisualisasikan persentase *missing value* pada masing-masing variabel atau kolom data
 
 
-```{r glimpse, cache=TRUE}
-glimpse(spotify_train)
+```{r glimpse}
+glimpse(data_train)
 ```
 
-```{r skim, cache=TRUE}
-skim(spotify_train)
+```{r skim}
+skim(data_train)
 ```
 
-```{r missing-vis, cache=TRUE}
-plot_missing(spotify_train)
+```{r missing-vis}
+plot_missing(data_train)
 ```
 
 Berdasarkan ringkasan data yang dihasilkan, diketahui dimensi data sebesar 982 baris dan 15 kolom. Dengan rincian masing-masing kolom, yaitu: 4 kolom dengan jenis data factor dan 11 kolom dengan jenis data numeric. Informasi lain yang diketahui adalah seluruh kolom dalam data tidak memiliki *missing value*.
@@ -185,18 +169,18 @@ Berdasarkan ringkasan data yang dihasilkan, diketahui dimensi data sebesar 982 b
 
 Variasi dari tiap variabel dapat divisualisasikan dengan menggunakan histogram (numerik) dan baplot (kategorikal).
 
-```{r hist, cache=TRUE}
-plot_histogram(spotify_train, ncol = 2L, nrow = 2L)
+```{r hist}
+plot_histogram(data_train, ncol = 2L, nrow = 2L)
 ```
 
-```{r bar, cache=TRUE}
-plot_bar(spotify_train, ncol = 2L, nrow = 2L)
+```{r bar}
+plot_bar(data_train, ncol = 2L, nrow = 2L)
 ```
 
 Berdasarkan hasil visualisasi diperoleh bahwa sebagian besar variabel numerik memiliki distribusi yang tidak simetris. Sedangkan pada variabel kategorikal diketahui bahwa seluruh variabel memiliki variasi yang tidak mendekati nol atau nol. Untuk mengetahui variabel dengan variasi mendekati nol atau nol, dapat menggunakan sintaks berikut:
 
-```{r nzv, cache=TRUE}
-nzvar <- nearZeroVar(spotify_train, saveMetrics = TRUE) %>% 
+```{r nzv}
+nzvar <- nearZeroVar(data_train, saveMetrics = TRUE) %>% 
   rownames_to_column() %>% 
   filter(nzv)
 nzvar
@@ -206,8 +190,8 @@ nzvar
 
 Kovarian dapat dicek melalui visualisasi *heatmap* koefisien korelasi.
 
-```{r heatmap, cache=TRUE}
-plot_correlation(spotify_train, 
+```{r heatmap}
+plot_correlation(data_train, 
                  cor_args = list(method = "spearman"))
 ```
 
@@ -251,7 +235,7 @@ Ada tiga langkah utama dalam membuat dan menerapkan rekayasa fitur dengan `recip
 3. `bake()`: terapkan *blueprint* untuk data baru.
 
 ```{r}
-blueprint <- recipe(artist ~ ., data = spotify_train) %>%
+blueprint <- recipe(artist ~ ., data = data_train) %>%
   step_nzv(all_nominal())  %>%
   
   # 2. imputation to missing value
@@ -273,16 +257,16 @@ blueprint <- recipe(artist ~ ., data = spotify_train) %>%
 
 Selanjutnya, *blueprint* yang telah dibuat dilakukan *training* pada data *training*. Perlu diperhatikan, kita tidak melakukan proses *training* pada data *test* untuk mencegah *data leakage*.
 
-```{r prep, cache=TRUE}
-prepare <- prep(blueprint, training = spotify_train)
+```{r prep}
+prepare <- prep(blueprint, training = data_train)
 prepare
 ```
 
 Langkah terakhir adalah mengaplikasikan *blueprint* pada data *training* dan *test* menggunakan fungsi `bake()`.
 
-```{r baked, cache=TRUE}
-baked_train <- bake(prepare, new_data = spotify_train)
-baked_test <- bake(prepare, new_data = spotify_test)
+```{r baked}
+baked_train <- bake(prepare, new_data = data_train)
+baked_test <- bake(prepare, new_data = data_test)
 baked_train
 ```
 
@@ -308,7 +292,7 @@ dimana:
 
 Langkah pertama yang perlu dilakukan dalam melakukan kegiatan validasi silang adalah menentukan spesifikasi parameter validasi silang. Fungsi `trainControl()` merupakan fungsi yang dapat kita gunakan untu menetukan metode validasi silang yang dilakukan dan spesifikasi terkait metode validasi silang yang digunakan.
 
-```{r nv-cv, cache=TRUE}
+```{r nv-cv}
 # spesifikasi metode validasi silang
 cv <- trainControl(
   # possible value: "boot", "boot632", "optimism_boot", "boot_all", "cv", 
@@ -325,7 +309,7 @@ cv <- trainControl(
 
 Selanjutnya spesifikasikan *hyperparameter* yang akan di *tuning*.
 
-```{r nv-hyper, cache=TRUE}
+```{r nv-hyper}
 ## Construct grid of hyperparameter values
 hyper_grid <- expand.grid(
   # kernel density estimate for continous variables vs gaussian density estimate
@@ -339,11 +323,11 @@ hyper_grid <- expand.grid(
 
 Setelah parameter *tuning* dan validasi silang dispesifikasikan, proses training dilakukan menggunakan fungsi `train()`.
 
-```{r nb-fit, cache=TRUE}
+```{r nb-fit}
 system.time(
-nb_fit_cv <- train(
+model_fit_cv <- train(
   blueprint,
-  data = spotify_train,
+  data = data_train,
   method = "nb",
   trControl = cv,
   tuneGrid =  hyper_grid,
@@ -351,31 +335,31 @@ nb_fit_cv <- train(
   )
 )
 
-nb_fit_cv
+model_fit_cv
 ```
 
 ```{r}
-nb_fit_cv$bestTune
+model_fit_cv$bestTune
 ```
 
 
-Proses *training* berlangsung selama 178.379 detik dengan 72 buah model yang terbentuk. Model terbaik dipilih berdasarkan nilai **AUC** terbesar. Berdasarkan kriteria tersebut model yang terpilih adalalah model yang memiliki nilai `ft` = `r nb_fit_cv$bestTune %>% dplyr::select(fl) %>% pull()`, `usekernel` = `r r nb_fit_cv$bestTune %>% dplyr::select(usekernel) %>% pull()` dan `adjust` = `r nb_fit_cv$bestTune %>% dplyr::select(adjust) %>% pull()`. Nilai **AUC** rata-rata model terbaik adalah sebagai berikut:
+Proses *training* berlangsung selama 178.379 detik dengan 72 buah model yang terbentuk. Model terbaik dipilih berdasarkan nilai **AUC** terbesar. Berdasarkan kriteria tersebut model yang terpilih adalalah model yang memiliki nilai `ft` = `r model_fit_cv$bestTune %>% dplyr::select(fL) %>% pull()`, `usekernel` = `r model_fit_cv$bestTune %>% dplyr::select(usekernel) %>% pull()` dan `adjust` = `r model_fit_cv$bestTune %>% dplyr::select(adjust) %>% pull()`. Nilai **AUC** rata-rata model terbaik adalah sebagai berikut:
 
 
-```{r nb-roc, cache=TRUE}
-nb_roc <- nb_fit_cv$results %>%
+```{r nb-roc}
+roc <- model_fit_cv$results %>%
   arrange(-AUC) %>%
   slice(1) %>%.[,"AUC"] 
-nb_roc
+roc
 ```
 
-Berdasarkan hasil yang diperoleh, luas area dibawah kurva **ROC** sebesar `r nb_roc` Berdasarkan hasil tersebut, model klasifikasi yang terbentuk lebih baik dibanding menebak secara acak. 
+Berdasarkan hasil yang diperoleh, luas area dibawah kurva **ROC** sebesar `r roc` Berdasarkan hasil tersebut, model klasifikasi yang terbentuk lebih baik dibanding menebak secara acak. 
 
 Visualisasi hubungan antar parameter  dan **ROC** ditampilkan pada gambar berikut:
 
 ```{r nb-cv-vis, chace = TRUE}
 # visualisasi
-ggplot(nb_fit_cv)
+ggplot(model_fit_cv)
 ```
 
 
@@ -383,22 +367,22 @@ ggplot(nb_fit_cv)
 
 Model terbaik dari hasil proses validasi silang selanjutnya diekstrak. Hal ini berguna untuk mengurangi ukuran model yang tersimpan. Secara default fungsi `train()` akan mengembalikan model dengan performa terbaik. Namun, terdapat sejumlah komponen lain dalam objek yang terbentuk, seperti: hasil prediksi, ringkasan training, dll. yang membuat ukuran objek menjadi besar. Untuk menguranginya, kita perlu mengambil objek model final dari objek hasil validasi silang.
 
-```{r nb-final, cache=TRUE}
-nb_fit <- nb_fit_cv$finalModel
+```{r nb-final}
+model_fit <- model_fit_cv$finalModel
 ```
 
 Visualisasi model final *naive bayes*, dilakukan menggunakan fungsi `plot()`. 
 
-```{r nb-vis, cache=TRUE}
+```{r nb-vis}
 # visualisasi
-plot(nb_fit)
+plot(model_fit)
 ```
 
 Model yang dihasilkan selanjutnya dapat kita uji lagi menggunakan data baru. Berikut adalah perhitungan nilai **Akurasi** model pada data *test*.
 
-```{r nb-cm-test, cache=TRUE}
+```{r nb-cm-test}
 # prediksi Attrition churn_test
-pred_test <- predict(nb_fit, baked_test, type = "class")$class
+pred_test <- predict(model_fit, baked_test, type = "class")$class
 
 ## RMSE
 cm <- confusionMatrix(pred_test, baked_test$artist)
@@ -412,26 +396,29 @@ Berdasarkan hasil evaluasi diperoleh nilai akurasi sebesar `r cm$overall[1]`
 
 Untuk mengetahui variabel yang paling berpengaruh secara global terhadap hasil prediksi model, kita dapat menggunakan plot *variable importance*.
 
-```{r nb-vip, cache=TRUE}
-vi <- varImp(nb_fit_cv, num_features = 10) %>% ggplot()
+```{r nb-vip}
+vi <- varImp(model_fit_cv, num_features = 10) %>% ggplot()
 vi
 ```
 
 Berdasarkan terdapat 4 buah variabel yang berpengaruh besar terhadap prediksi yang dihasilkan oleh model, antara lain: `r as.character(vi$data[1:4, 3])`. Untuk melihat efek dari masing-masing variabel terhadap variabel respon, kita dapat menggunakan *partial dependence plot*.
 
-```{r nb-pdp, cache=TRUE}
-p1 <- pdp::partial(nb_fit_cv, pred.var = as.character(vi$data[1, 3])) %>% 
+```{r nb-pdp1}
+
+p1 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[1, 3])) %>% 
   autoplot() 
 
-p2 <- pdp::partial(nb_fit_cv, pred.var = as.character(vi$data[2, 3])) %>% 
+p2 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[2, 3])) %>% 
   autoplot()
 
-p3 <- pdp::partial(nb_fit_cv, pred.var = as.character(vi$data[3, 3])) %>% 
+p3 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[3, 3])) %>% 
   autoplot()
   
 
-p4 <- pdp::partial(nb_fit_cv, pred.var = as.character(vi$data[4, 3])) %>% 
+p4 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[4, 3])) %>% 
   autoplot()
 
 grid.arrange(p1, p2, p3, p4, nrow = 2)
 ```
+
+

@@ -17,8 +17,8 @@ terkait dataset ini, kunjungin tautan berikut:
 ## Library
 
 Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif
-menggunakan *partial least square* (PLS) *regression*. Paket-paket yang digunakan ditampilkan sebagai
-berikut:
+menggunakan *partial least square* (PLS) *regression*. Paket-paket yang
+digunakan ditampilkan sebagai berikut:
 
 ``` r
 # library pembantu
@@ -31,6 +31,7 @@ library(modeldata)
 
 # library model
 library(caret)
+library(pls)
 
 # paket penjelasan model
 library(vip)
@@ -93,8 +94,8 @@ variabel target (`Sale_Price`).
 set.seed(123)
 
 split  <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
-ames_train  <- training(split)
-ames_test   <- testing(split)
+data_train  <- training(split)
+data_test   <- testing(split)
 ```
 
 Untuk mengecek distribusi dari kedua set data, kita dapat
@@ -103,19 +104,19 @@ tersebut.
 
 ``` r
 # training set
-ggplot(ames_train, aes(x = Sale_Price)) + 
+ggplot(data_train, aes(x = Sale_Price)) + 
   geom_density() 
 ```
 
-![](temp_files/figure-gfm/target-vis-1.png)<!-- -->
+![](pl-regression_files/figure-gfm/target-vis-1.png)<!-- -->
 
 ``` r
 # test set
-ggplot(ames_test, aes(x = Sale_Price)) + 
+ggplot(data_test, aes(x = Sale_Price)) + 
   geom_density() 
 ```
 
-![](temp_files/figure-gfm/target-vis-2.png)<!-- -->
+![](pl-regression_files/figure-gfm/target-vis-2.png)<!-- -->
 
 # Analisis Data Eksploratif
 
@@ -145,93 +146,93 @@ antara lain:
 <!-- end list -->
 
 ``` r
-glimpse(ames_train)
+glimpse(data_train)
 ```
 
     ## Rows: 2,053
     ## Columns: 74
-    ## $ MS_SubClass        <fct> One_Story_1946_and_Newer_All_Styles, One_Story_194…
-    ## $ MS_Zoning          <fct> Residential_Low_Density, Residential_High_Density,…
-    ## $ Lot_Frontage       <dbl> 141, 80, 81, 78, 41, 39, 60, 75, 63, 85, 47, 152, …
-    ## $ Lot_Area           <int> 31770, 11622, 14267, 9978, 4920, 5389, 7500, 10000…
-    ## $ Street             <fct> Pave, Pave, Pave, Pave, Pave, Pave, Pave, Pave, Pa…
-    ## $ Alley              <fct> No_Alley_Access, No_Alley_Access, No_Alley_Access,…
-    ## $ Lot_Shape          <fct> Slightly_Irregular, Regular, Slightly_Irregular, S…
-    ## $ Land_Contour       <fct> Lvl, Lvl, Lvl, Lvl, Lvl, Lvl, Lvl, Lvl, Lvl, Lvl, …
-    ## $ Utilities          <fct> AllPub, AllPub, AllPub, AllPub, AllPub, AllPub, Al…
-    ## $ Lot_Config         <fct> Corner, Inside, Corner, Inside, Inside, Inside, In…
-    ## $ Land_Slope         <fct> Gtl, Gtl, Gtl, Gtl, Gtl, Gtl, Gtl, Gtl, Gtl, Gtl, …
-    ## $ Neighborhood       <fct> North_Ames, North_Ames, North_Ames, Gilbert, Stone…
-    ## $ Condition_1        <fct> Norm, Feedr, Norm, Norm, Norm, Norm, Norm, Norm, N…
-    ## $ Condition_2        <fct> Norm, Norm, Norm, Norm, Norm, Norm, Norm, Norm, No…
-    ## $ Bldg_Type          <fct> OneFam, OneFam, OneFam, OneFam, TwnhsE, TwnhsE, On…
-    ## $ House_Style        <fct> One_Story, One_Story, One_Story, Two_Story, One_St…
-    ## $ Overall_Cond       <fct> Average, Above_Average, Above_Average, Above_Avera…
-    ## $ Year_Built         <int> 1960, 1961, 1958, 1998, 2001, 1995, 1999, 1993, 19…
-    ## $ Year_Remod_Add     <int> 1960, 1961, 1958, 1998, 2001, 1996, 1999, 1994, 19…
-    ## $ Roof_Style         <fct> Hip, Gable, Hip, Gable, Gable, Gable, Gable, Gable…
-    ## $ Roof_Matl          <fct> CompShg, CompShg, CompShg, CompShg, CompShg, CompS…
-    ## $ Exterior_1st       <fct> BrkFace, VinylSd, Wd Sdng, VinylSd, CemntBd, Cemnt…
-    ## $ Exterior_2nd       <fct> Plywood, VinylSd, Wd Sdng, VinylSd, CmentBd, Cment…
-    ## $ Mas_Vnr_Type       <fct> Stone, None, BrkFace, BrkFace, None, None, None, N…
-    ## $ Mas_Vnr_Area       <dbl> 112, 0, 108, 20, 0, 0, 0, 0, 0, 0, 603, 0, 350, 0,…
-    ## $ Exter_Cond         <fct> Typical, Typical, Typical, Typical, Typical, Typic…
-    ## $ Foundation         <fct> CBlock, CBlock, CBlock, PConc, PConc, PConc, PConc…
-    ## $ Bsmt_Cond          <fct> Good, Typical, Typical, Typical, Typical, Typical,…
-    ## $ Bsmt_Exposure      <fct> Gd, No, No, No, Mn, No, No, No, No, Gd, Gd, Av, Av…
-    ## $ BsmtFin_Type_1     <fct> BLQ, Rec, ALQ, GLQ, GLQ, GLQ, Unf, Unf, Unf, GLQ, …
-    ## $ BsmtFin_SF_1       <dbl> 2, 6, 1, 3, 3, 3, 7, 7, 7, 3, 1, 3, 3, 4, 1, 2, 3,…
-    ## $ BsmtFin_Type_2     <fct> Unf, LwQ, Unf, Unf, Unf, Unf, Unf, Unf, Unf, Unf, …
-    ## $ BsmtFin_SF_2       <dbl> 0, 144, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 163, 0…
-    ## $ Bsmt_Unf_SF        <dbl> 441, 270, 406, 324, 722, 415, 994, 763, 789, 663, …
-    ## $ Total_Bsmt_SF      <dbl> 1080, 882, 1329, 926, 1338, 1595, 994, 763, 789, 1…
-    ## $ Heating            <fct> GasA, GasA, GasA, GasA, GasA, GasA, GasA, GasA, Ga…
-    ## $ Heating_QC         <fct> Fair, Typical, Typical, Excellent, Excellent, Exce…
-    ## $ Central_Air        <fct> Y, Y, Y, Y, Y, Y, Y, Y, Y, Y, Y, Y, Y, Y, Y, Y, Y,…
-    ## $ Electrical         <fct> SBrkr, SBrkr, SBrkr, SBrkr, SBrkr, SBrkr, SBrkr, S…
-    ## $ First_Flr_SF       <int> 1656, 896, 1329, 926, 1338, 1616, 1028, 763, 789, …
-    ## $ Second_Flr_SF      <int> 0, 0, 0, 678, 0, 0, 776, 892, 676, 0, 1589, 672, 0…
-    ## $ Gr_Liv_Area        <int> 1656, 896, 1329, 1604, 1338, 1616, 1804, 1655, 146…
-    ## $ Bsmt_Full_Bath     <dbl> 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1,…
-    ## $ Bsmt_Half_Bath     <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,…
-    ## $ Full_Bath          <int> 1, 1, 1, 2, 2, 2, 2, 2, 2, 1, 3, 2, 1, 1, 2, 2, 2,…
-    ## $ Half_Bath          <int> 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0,…
-    ## $ Bedroom_AbvGr      <int> 3, 2, 3, 3, 2, 2, 3, 3, 3, 2, 4, 4, 1, 2, 3, 3, 3,…
-    ## $ Kitchen_AbvGr      <int> 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…
-    ## $ TotRms_AbvGrd      <int> 7, 5, 6, 7, 6, 5, 7, 7, 7, 5, 12, 8, 8, 4, 7, 7, 6…
-    ## $ Functional         <fct> Typ, Typ, Typ, Typ, Typ, Typ, Typ, Typ, Typ, Typ, …
-    ## $ Fireplaces         <int> 2, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 2, 1, 2,…
-    ## $ Garage_Type        <fct> Attchd, Attchd, Attchd, Attchd, Attchd, Attchd, At…
-    ## $ Garage_Finish      <fct> Fin, Unf, Unf, Fin, Fin, RFn, Fin, Fin, Fin, Unf, …
-    ## $ Garage_Cars        <dbl> 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 2, 3, 2, 2, 2, 2,…
-    ## $ Garage_Area        <dbl> 528, 730, 312, 470, 582, 608, 442, 440, 393, 506, …
-    ## $ Garage_Cond        <fct> Typical, Typical, Typical, Typical, Typical, Typic…
-    ## $ Paved_Drive        <fct> Partial_Pavement, Paved, Paved, Paved, Paved, Pave…
-    ## $ Wood_Deck_SF       <int> 210, 140, 393, 360, 0, 237, 140, 157, 0, 192, 503,…
-    ## $ Open_Porch_SF      <int> 62, 0, 36, 36, 0, 152, 60, 84, 75, 0, 36, 12, 0, 0…
-    ## $ Enclosed_Porch     <int> 0, 0, 0, 0, 170, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
-    ## $ Three_season_porch <int> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,…
-    ## $ Screen_Porch       <int> 0, 120, 0, 0, 0, 0, 0, 0, 0, 0, 210, 0, 0, 0, 0, 0…
-    ## $ Pool_Area          <int> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,…
-    ## $ Pool_QC            <fct> No_Pool, No_Pool, No_Pool, No_Pool, No_Pool, No_Po…
-    ## $ Fence              <fct> No_Fence, Minimum_Privacy, No_Fence, No_Fence, No_…
-    ## $ Misc_Feature       <fct> None, None, Gar2, None, None, None, None, None, No…
-    ## $ Misc_Val           <int> 0, 0, 12500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
-    ## $ Mo_Sold            <int> 5, 6, 6, 6, 4, 3, 6, 4, 5, 2, 6, 6, 6, 6, 2, 1, 1,…
-    ## $ Year_Sold          <int> 2010, 2010, 2010, 2010, 2010, 2010, 2010, 2010, 20…
-    ## $ Sale_Type          <fct> WD , WD , WD , WD , WD , WD , WD , WD , WD , WD , …
-    ## $ Sale_Condition     <fct> Normal, Normal, Normal, Normal, Normal, Normal, No…
-    ## $ Sale_Price         <int> 215000, 105000, 172000, 195500, 213500, 236500, 18…
-    ## $ Longitude          <dbl> -93.61975, -93.61976, -93.61939, -93.63893, -93.63…
-    ## $ Latitude           <dbl> 42.05403, 42.05301, 42.05266, 42.06078, 42.06298, …
+    ## $ MS_SubClass        <fct> One_Story_1946_and_Newer_All_Styles, One_Story_1...
+    ## $ MS_Zoning          <fct> Residential_Low_Density, Residential_High_Densit...
+    ## $ Lot_Frontage       <dbl> 141, 80, 81, 78, 41, 39, 60, 75, 63, 85, 47, 152...
+    ## $ Lot_Area           <int> 31770, 11622, 14267, 9978, 4920, 5389, 7500, 100...
+    ## $ Street             <fct> Pave, Pave, Pave, Pave, Pave, Pave, Pave, Pave, ...
+    ## $ Alley              <fct> No_Alley_Access, No_Alley_Access, No_Alley_Acces...
+    ## $ Lot_Shape          <fct> Slightly_Irregular, Regular, Slightly_Irregular,...
+    ## $ Land_Contour       <fct> Lvl, Lvl, Lvl, Lvl, Lvl, Lvl, Lvl, Lvl, Lvl, Lvl...
+    ## $ Utilities          <fct> AllPub, AllPub, AllPub, AllPub, AllPub, AllPub, ...
+    ## $ Lot_Config         <fct> Corner, Inside, Corner, Inside, Inside, Inside, ...
+    ## $ Land_Slope         <fct> Gtl, Gtl, Gtl, Gtl, Gtl, Gtl, Gtl, Gtl, Gtl, Gtl...
+    ## $ Neighborhood       <fct> North_Ames, North_Ames, North_Ames, Gilbert, Sto...
+    ## $ Condition_1        <fct> Norm, Feedr, Norm, Norm, Norm, Norm, Norm, Norm,...
+    ## $ Condition_2        <fct> Norm, Norm, Norm, Norm, Norm, Norm, Norm, Norm, ...
+    ## $ Bldg_Type          <fct> OneFam, OneFam, OneFam, OneFam, TwnhsE, TwnhsE, ...
+    ## $ House_Style        <fct> One_Story, One_Story, One_Story, Two_Story, One_...
+    ## $ Overall_Cond       <fct> Average, Above_Average, Above_Average, Above_Ave...
+    ## $ Year_Built         <int> 1960, 1961, 1958, 1998, 2001, 1995, 1999, 1993, ...
+    ## $ Year_Remod_Add     <int> 1960, 1961, 1958, 1998, 2001, 1996, 1999, 1994, ...
+    ## $ Roof_Style         <fct> Hip, Gable, Hip, Gable, Gable, Gable, Gable, Gab...
+    ## $ Roof_Matl          <fct> CompShg, CompShg, CompShg, CompShg, CompShg, Com...
+    ## $ Exterior_1st       <fct> BrkFace, VinylSd, Wd Sdng, VinylSd, CemntBd, Cem...
+    ## $ Exterior_2nd       <fct> Plywood, VinylSd, Wd Sdng, VinylSd, CmentBd, Cme...
+    ## $ Mas_Vnr_Type       <fct> Stone, None, BrkFace, BrkFace, None, None, None,...
+    ## $ Mas_Vnr_Area       <dbl> 112, 0, 108, 20, 0, 0, 0, 0, 0, 0, 603, 0, 350, ...
+    ## $ Exter_Cond         <fct> Typical, Typical, Typical, Typical, Typical, Typ...
+    ## $ Foundation         <fct> CBlock, CBlock, CBlock, PConc, PConc, PConc, PCo...
+    ## $ Bsmt_Cond          <fct> Good, Typical, Typical, Typical, Typical, Typica...
+    ## $ Bsmt_Exposure      <fct> Gd, No, No, No, Mn, No, No, No, No, Gd, Gd, Av, ...
+    ## $ BsmtFin_Type_1     <fct> BLQ, Rec, ALQ, GLQ, GLQ, GLQ, Unf, Unf, Unf, GLQ...
+    ## $ BsmtFin_SF_1       <dbl> 2, 6, 1, 3, 3, 3, 7, 7, 7, 3, 1, 3, 3, 4, 1, 2, ...
+    ## $ BsmtFin_Type_2     <fct> Unf, LwQ, Unf, Unf, Unf, Unf, Unf, Unf, Unf, Unf...
+    ## $ BsmtFin_SF_2       <dbl> 0, 144, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 163,...
+    ## $ Bsmt_Unf_SF        <dbl> 441, 270, 406, 324, 722, 415, 994, 763, 789, 663...
+    ## $ Total_Bsmt_SF      <dbl> 1080, 882, 1329, 926, 1338, 1595, 994, 763, 789,...
+    ## $ Heating            <fct> GasA, GasA, GasA, GasA, GasA, GasA, GasA, GasA, ...
+    ## $ Heating_QC         <fct> Fair, Typical, Typical, Excellent, Excellent, Ex...
+    ## $ Central_Air        <fct> Y, Y, Y, Y, Y, Y, Y, Y, Y, Y, Y, Y, Y, Y, Y, Y, ...
+    ## $ Electrical         <fct> SBrkr, SBrkr, SBrkr, SBrkr, SBrkr, SBrkr, SBrkr,...
+    ## $ First_Flr_SF       <int> 1656, 896, 1329, 926, 1338, 1616, 1028, 763, 789...
+    ## $ Second_Flr_SF      <int> 0, 0, 0, 678, 0, 0, 776, 892, 676, 0, 1589, 672,...
+    ## $ Gr_Liv_Area        <int> 1656, 896, 1329, 1604, 1338, 1616, 1804, 1655, 1...
+    ## $ Bsmt_Full_Bath     <dbl> 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, ...
+    ## $ Bsmt_Half_Bath     <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...
+    ## $ Full_Bath          <int> 1, 1, 1, 2, 2, 2, 2, 2, 2, 1, 3, 2, 1, 1, 2, 2, ...
+    ## $ Half_Bath          <int> 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, ...
+    ## $ Bedroom_AbvGr      <int> 3, 2, 3, 3, 2, 2, 3, 3, 3, 2, 4, 4, 1, 2, 3, 3, ...
+    ## $ Kitchen_AbvGr      <int> 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, ...
+    ## $ TotRms_AbvGrd      <int> 7, 5, 6, 7, 6, 5, 7, 7, 7, 5, 12, 8, 8, 4, 7, 7,...
+    ## $ Functional         <fct> Typ, Typ, Typ, Typ, Typ, Typ, Typ, Typ, Typ, Typ...
+    ## $ Fireplaces         <int> 2, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 2, 1, ...
+    ## $ Garage_Type        <fct> Attchd, Attchd, Attchd, Attchd, Attchd, Attchd, ...
+    ## $ Garage_Finish      <fct> Fin, Unf, Unf, Fin, Fin, RFn, Fin, Fin, Fin, Unf...
+    ## $ Garage_Cars        <dbl> 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 2, 3, 2, 2, 2, ...
+    ## $ Garage_Area        <dbl> 528, 730, 312, 470, 582, 608, 442, 440, 393, 506...
+    ## $ Garage_Cond        <fct> Typical, Typical, Typical, Typical, Typical, Typ...
+    ## $ Paved_Drive        <fct> Partial_Pavement, Paved, Paved, Paved, Paved, Pa...
+    ## $ Wood_Deck_SF       <int> 210, 140, 393, 360, 0, 237, 140, 157, 0, 192, 50...
+    ## $ Open_Porch_SF      <int> 62, 0, 36, 36, 0, 152, 60, 84, 75, 0, 36, 12, 0,...
+    ## $ Enclosed_Porch     <int> 0, 0, 0, 0, 170, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0...
+    ## $ Three_season_porch <int> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...
+    ## $ Screen_Porch       <int> 0, 120, 0, 0, 0, 0, 0, 0, 0, 0, 210, 0, 0, 0, 0,...
+    ## $ Pool_Area          <int> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...
+    ## $ Pool_QC            <fct> No_Pool, No_Pool, No_Pool, No_Pool, No_Pool, No_...
+    ## $ Fence              <fct> No_Fence, Minimum_Privacy, No_Fence, No_Fence, N...
+    ## $ Misc_Feature       <fct> None, None, Gar2, None, None, None, None, None, ...
+    ## $ Misc_Val           <int> 0, 0, 12500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,...
+    ## $ Mo_Sold            <int> 5, 6, 6, 6, 4, 3, 6, 4, 5, 2, 6, 6, 6, 6, 2, 1, ...
+    ## $ Year_Sold          <int> 2010, 2010, 2010, 2010, 2010, 2010, 2010, 2010, ...
+    ## $ Sale_Type          <fct> WD , WD , WD , WD , WD , WD , WD , WD , WD , WD ...
+    ## $ Sale_Condition     <fct> Normal, Normal, Normal, Normal, Normal, Normal, ...
+    ## $ Sale_Price         <int> 215000, 105000, 172000, 195500, 213500, 236500, ...
+    ## $ Longitude          <dbl> -93.61975, -93.61976, -93.61939, -93.63893, -93....
+    ## $ Latitude           <dbl> 42.05403, 42.05301, 42.05266, 42.06078, 42.06298...
 
 ``` r
-skim(ames_train)
+skim(data_train)
 ```
 
 |                                                  |             |
 | :----------------------------------------------- | :---------- |
-| Name                                             | ames\_train |
+| Name                                             | data\_train |
 | Number of rows                                   | 2053        |
 | Number of columns                                | 74          |
 | \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_   |             |
@@ -328,10 +329,10 @@ Data summary
 | Latitude             |          0 |              1 |     42.03 |     0.02 |    41.99 |     42.02 |     42.03 |     42.05 |     42.06 | ▂▂▇▇▇ |
 
 ``` r
-plot_missing(ames_train)
+plot_missing(data_train)
 ```
 
-![](temp_files/figure-gfm/missing-vis-1.png)<!-- -->
+![](pl-regression_files/figure-gfm/missing-vis-1.png)<!-- -->
 
 Berdasarkan ringkasan data yang dihasilkan, diketahui dimensi data
 sebesar 2053 baris dan 74 kolom. Dengan rincian masing-masing kolom,
@@ -345,16 +346,16 @@ Variasi dari tiap variabel dapat divisualisasikan dengan menggunakan
 histogram (numerik) dan baplot (kategorikal).
 
 ``` r
-plot_histogram(ames_train, ncol = 2L, nrow = 2L)
+plot_histogram(data_train, ncol = 2L, nrow = 2L)
 ```
 
-![](temp_files/figure-gfm/hist-1.png)<!-- -->![](temp_files/figure-gfm/hist-2.png)<!-- -->![](temp_files/figure-gfm/hist-3.png)<!-- -->![](temp_files/figure-gfm/hist-4.png)<!-- -->![](temp_files/figure-gfm/hist-5.png)<!-- -->![](temp_files/figure-gfm/hist-6.png)<!-- -->![](temp_files/figure-gfm/hist-7.png)<!-- -->![](temp_files/figure-gfm/hist-8.png)<!-- -->![](temp_files/figure-gfm/hist-9.png)<!-- -->
+![](pl-regression_files/figure-gfm/hist-1.png)<!-- -->![](pl-regression_files/figure-gfm/hist-2.png)<!-- -->![](pl-regression_files/figure-gfm/hist-3.png)<!-- -->![](pl-regression_files/figure-gfm/hist-4.png)<!-- -->![](pl-regression_files/figure-gfm/hist-5.png)<!-- -->![](pl-regression_files/figure-gfm/hist-6.png)<!-- -->![](pl-regression_files/figure-gfm/hist-7.png)<!-- -->![](pl-regression_files/figure-gfm/hist-8.png)<!-- -->![](pl-regression_files/figure-gfm/hist-9.png)<!-- -->
 
 ``` r
-plot_bar(ames_train, ncol = 2L, nrow = 2L)
+plot_bar(data_train, ncol = 2L, nrow = 2L)
 ```
 
-![](temp_files/figure-gfm/bar-1.png)<!-- -->![](temp_files/figure-gfm/bar-2.png)<!-- -->![](temp_files/figure-gfm/bar-3.png)<!-- -->![](temp_files/figure-gfm/bar-4.png)<!-- -->![](temp_files/figure-gfm/bar-5.png)<!-- -->![](temp_files/figure-gfm/bar-6.png)<!-- -->![](temp_files/figure-gfm/bar-7.png)<!-- -->![](temp_files/figure-gfm/bar-8.png)<!-- -->![](temp_files/figure-gfm/bar-9.png)<!-- -->![](temp_files/figure-gfm/bar-10.png)<!-- -->
+![](pl-regression_files/figure-gfm/bar-1.png)<!-- -->![](pl-regression_files/figure-gfm/bar-2.png)<!-- -->![](pl-regression_files/figure-gfm/bar-3.png)<!-- -->![](pl-regression_files/figure-gfm/bar-4.png)<!-- -->![](pl-regression_files/figure-gfm/bar-5.png)<!-- -->![](pl-regression_files/figure-gfm/bar-6.png)<!-- -->![](pl-regression_files/figure-gfm/bar-7.png)<!-- -->![](pl-regression_files/figure-gfm/bar-8.png)<!-- -->![](pl-regression_files/figure-gfm/bar-9.png)<!-- -->![](pl-regression_files/figure-gfm/bar-10.png)<!-- -->
 
 Berdasarkan hasil visualisasi diperoleh bahwa sebagian besar variabel
 numerik memiliki distribusi yang tidak simetris. Sedangkan pada variabel
@@ -363,7 +364,7 @@ variasi rendah atau mendekati nol. Untuk mengetahui variabel dengan
 variabilitas mendekati nol atau nol, dapat menggunakan sintaks berikut:
 
 ``` r
-nzvar <- nearZeroVar(ames_train, saveMetrics = TRUE) %>% 
+nzvar <- nearZeroVar(data_train, saveMetrics = TRUE) %>% 
   rownames_to_column() %>% 
   filter(nzv)
 nzvar
@@ -394,7 +395,7 @@ Berikut adalah ringkasan data pada variabel yang tidak memiliki variasi
 yang mendekati nol.
 
 ``` r
-without_nzvar <- select(ames_train, !nzvar$rowname)
+without_nzvar <- select(data_train, !nzvar$rowname)
 skim(without_nzvar)
 ```
 
@@ -482,7 +483,7 @@ memiliki jumlah kategori \>= 10.
 
 ``` r
 # MS_SubClass 
-count(ames_train, MS_SubClass) %>% arrange(n)
+count(data_train, MS_SubClass) %>% arrange(n)
 ```
 
     ## # A tibble: 16 x 2
@@ -507,7 +508,7 @@ count(ames_train, MS_SubClass) %>% arrange(n)
 
 ``` r
 # Neighborhood
-count(ames_train, Neighborhood) %>% arrange(n)
+count(data_train, Neighborhood) %>% arrange(n)
 ```
 
     ## # A tibble: 27 x 2
@@ -523,11 +524,11 @@ count(ames_train, Neighborhood) %>% arrange(n)
     ##  8 South_and_West_of_Iowa_State_University    27
     ##  9 Meadow_Village                             29
     ## 10 Clear_Creek                                31
-    ## # … with 17 more rows
+    ## # ... with 17 more rows
 
 ``` r
 # Neighborhood
-count(ames_train, Exterior_1st) %>% arrange(n)
+count(data_train, Exterior_1st) %>% arrange(n)
 ```
 
     ## # A tibble: 14 x 2
@@ -550,7 +551,7 @@ count(ames_train, Exterior_1st) %>% arrange(n)
 
 ``` r
 # Exterior_2nd
-count(ames_train, Exterior_2nd) %>% arrange(n)
+count(data_train, Exterior_2nd) %>% arrange(n)
 ```
 
     ## # A tibble: 16 x 2
@@ -579,17 +580,17 @@ Kovarian dapat dicek melalui visualisasi *heatmap* koefisien korelasi
 (numerik) atau menggunakan *boxplot* (kontinu vs kategorikal)
 
 ``` r
-plot_correlation(ames_train, type = "continuous", 
+plot_correlation(data_train, type = "continuous", 
                  cor_args = list(method = "spearman"))
 ```
 
-![](temp_files/figure-gfm/heatmap-1.png)<!-- -->
+![](pl-regression_files/figure-gfm/heatmap-1.png)<!-- -->
 
 ``` r
-plot_boxplot(ames_train, by = "Sale_Price", ncol = 2, nrow = 1)
+plot_boxplot(data_train, by = "Sale_Price", ncol = 2, nrow = 1)
 ```
 
-![](temp_files/figure-gfm/boxplot-1.png)<!-- -->![](temp_files/figure-gfm/boxplot-2.png)<!-- -->![](temp_files/figure-gfm/boxplot-3.png)<!-- -->![](temp_files/figure-gfm/boxplot-4.png)<!-- -->![](temp_files/figure-gfm/boxplot-5.png)<!-- -->![](temp_files/figure-gfm/boxplot-6.png)<!-- -->![](temp_files/figure-gfm/boxplot-7.png)<!-- -->![](temp_files/figure-gfm/boxplot-8.png)<!-- -->![](temp_files/figure-gfm/boxplot-9.png)<!-- -->![](temp_files/figure-gfm/boxplot-10.png)<!-- -->![](temp_files/figure-gfm/boxplot-11.png)<!-- -->![](temp_files/figure-gfm/boxplot-12.png)<!-- -->![](temp_files/figure-gfm/boxplot-13.png)<!-- -->![](temp_files/figure-gfm/boxplot-14.png)<!-- -->![](temp_files/figure-gfm/boxplot-15.png)<!-- -->![](temp_files/figure-gfm/boxplot-16.png)<!-- -->![](temp_files/figure-gfm/boxplot-17.png)<!-- -->
+![](pl-regression_files/figure-gfm/boxplot-1.png)<!-- -->![](pl-regression_files/figure-gfm/boxplot-2.png)<!-- -->![](pl-regression_files/figure-gfm/boxplot-3.png)<!-- -->![](pl-regression_files/figure-gfm/boxplot-4.png)<!-- -->![](pl-regression_files/figure-gfm/boxplot-5.png)<!-- -->![](pl-regression_files/figure-gfm/boxplot-6.png)<!-- -->![](pl-regression_files/figure-gfm/boxplot-7.png)<!-- -->![](pl-regression_files/figure-gfm/boxplot-8.png)<!-- -->![](pl-regression_files/figure-gfm/boxplot-9.png)<!-- -->![](pl-regression_files/figure-gfm/boxplot-10.png)<!-- -->![](pl-regression_files/figure-gfm/boxplot-11.png)<!-- -->![](pl-regression_files/figure-gfm/boxplot-12.png)<!-- -->![](pl-regression_files/figure-gfm/boxplot-13.png)<!-- -->![](pl-regression_files/figure-gfm/boxplot-14.png)<!-- -->![](pl-regression_files/figure-gfm/boxplot-15.png)<!-- -->![](pl-regression_files/figure-gfm/boxplot-16.png)<!-- -->![](pl-regression_files/figure-gfm/boxplot-17.png)<!-- -->
 
 # Target and Feature Engineering
 
@@ -671,15 +672,14 @@ dan kemudian kita secara bertahap menambahkan langkah-langkah rekayasa
 fitur dengan fungsi `step_xxx()`.
 
 ``` r
-blueprint <- recipe(Sale_Price ~., data = ames_train) %>%
+blueprint <- recipe(Sale_Price ~., data = data_train) %>%
   # feature filtering
   step_nzv(all_nominal()) %>%
-  # label encoding
-  step_integer(dplyr::matches("Exterior|Neighbor|Sub|Qual|Cond|QC|Qu|Type")) %>%
+  # lumping
+  step_other(all_nominal(), threshold = 0.05) %>%
   # standardization
   step_center(all_numeric(), -all_outcomes()) %>%
   step_scale(all_numeric(), -all_outcomes())
-  
   
 blueprint
 ```
@@ -695,7 +695,7 @@ blueprint
     ## Operations:
     ## 
     ## Sparse, unbalanced variable filter on all_nominal()
-    ## Integer encoding for 1 items
+    ## Collapsing factor levels for all_nominal()
     ## Centering for all_numeric(), -all_outcomes()
     ## Scaling for all_numeric(), -all_outcomes()
 
@@ -703,7 +703,7 @@ Selanjutnya, *blueprint* yang telah dibuat dilakukan *training* pada
 data *training*.
 
 ``` r
-prepare <- prep(blueprint, training = ames_train)
+prepare <- prep(blueprint, training = data_train)
 prepare
 ```
 
@@ -720,49 +720,49 @@ prepare
     ## Operations:
     ## 
     ## Sparse, unbalanced variable filter removed Street, Alley, Land_Contour, ... [trained]
-    ## Integer encoding for MS_SubClass, Neighborhood, Condition_1, ... [trained]
-    ## Centering for MS_SubClass, Lot_Frontage, ... [trained]
-    ## Scaling for MS_SubClass, Lot_Frontage, ... [trained]
+    ## Collapsing factor levels for MS_SubClass, MS_Zoning, Lot_Shape, ... [trained]
+    ## Centering for Lot_Frontage, Lot_Area, ... [trained]
+    ## Scaling for Lot_Frontage, Lot_Area, ... [trained]
 
 Langkah terakhir adalah mengaplikasikan *blueprint* pada data *training*
 dan *test* menggunakan fungsi `bake()`.
 
 ``` r
-baked_train <- bake(prepare, new_data = ames_train)
-baked_test <- bake(prepare, new_data = ames_test)
+baked_train <- bake(prepare, new_data = data_train)
+baked_test <- bake(prepare, new_data = data_test)
 baked_train
 ```
 
     ## # A tibble: 2,053 x 61
     ##    MS_SubClass MS_Zoning Lot_Frontage Lot_Area Lot_Shape Lot_Config Neighborhood
-    ##          <dbl> <fct>            <dbl>    <dbl> <fct>     <fct>             <dbl>
-    ##  1      -0.988 Resident…       2.49    2.67    Slightly… Corner           -1.12 
-    ##  2      -0.988 Resident…       0.683   0.185   Regular   Inside           -1.12 
-    ##  3      -0.988 Resident…       0.712   0.511   Slightly… Corner           -1.12 
-    ##  4       0.151 Resident…       0.623  -0.0176  Slightly… Inside           -0.133
-    ##  5       1.52  Resident…      -0.475  -0.640   Regular   Inside            1.50 
-    ##  6       1.52  Resident…      -0.534  -0.583   Slightly… Inside            1.50 
-    ##  7       0.151 Resident…       0.0892 -0.323   Regular   Inside           -0.133
-    ##  8       0.151 Resident…       0.534  -0.0149  Slightly… Corner           -0.133
-    ##  9       0.151 Resident…       0.178  -0.212   Slightly… Inside           -0.133
-    ## 10      -0.988 Resident…       0.831   0.00676 Regular   Inside           -0.133
-    ## # … with 2,043 more rows, and 54 more variables: Condition_1 <dbl>,
-    ## #   Bldg_Type <dbl>, House_Style <fct>, Overall_Cond <dbl>, Year_Built <dbl>,
-    ## #   Year_Remod_Add <dbl>, Roof_Style <fct>, Exterior_1st <dbl>,
-    ## #   Exterior_2nd <dbl>, Mas_Vnr_Type <dbl>, Mas_Vnr_Area <dbl>,
-    ## #   Exter_Cond <dbl>, Foundation <fct>, Bsmt_Exposure <fct>,
-    ## #   BsmtFin_Type_1 <dbl>, BsmtFin_SF_1 <dbl>, BsmtFin_SF_2 <dbl>,
-    ## #   Bsmt_Unf_SF <dbl>, Total_Bsmt_SF <dbl>, Heating_QC <dbl>,
+    ##    <fct>       <fct>            <dbl>    <dbl> <fct>     <fct>      <fct>       
+    ##  1 One_Story_~ Resident~       2.49    2.67    Slightly~ Corner     North_Ames  
+    ##  2 One_Story_~ other           0.683   0.185   Regular   Inside     North_Ames  
+    ##  3 One_Story_~ Resident~       0.712   0.511   Slightly~ Corner     North_Ames  
+    ##  4 Two_Story_~ Resident~       0.623  -0.0176  Slightly~ Inside     Gilbert     
+    ##  5 One_Story_~ Resident~      -0.475  -0.640   Regular   Inside     other       
+    ##  6 One_Story_~ Resident~      -0.534  -0.583   Slightly~ Inside     other       
+    ##  7 Two_Story_~ Resident~       0.0892 -0.323   Regular   Inside     Gilbert     
+    ##  8 Two_Story_~ Resident~       0.534  -0.0149  Slightly~ Corner     Gilbert     
+    ##  9 Two_Story_~ Resident~       0.178  -0.212   Slightly~ Inside     Gilbert     
+    ## 10 One_Story_~ Resident~       0.831   0.00676 Regular   Inside     Gilbert     
+    ## # ... with 2,043 more rows, and 54 more variables: Condition_1 <fct>,
+    ## #   Bldg_Type <fct>, House_Style <fct>, Overall_Cond <fct>, Year_Built <dbl>,
+    ## #   Year_Remod_Add <dbl>, Roof_Style <fct>, Exterior_1st <fct>,
+    ## #   Exterior_2nd <fct>, Mas_Vnr_Type <fct>, Mas_Vnr_Area <dbl>,
+    ## #   Exter_Cond <fct>, Foundation <fct>, Bsmt_Exposure <fct>,
+    ## #   BsmtFin_Type_1 <fct>, BsmtFin_SF_1 <dbl>, BsmtFin_SF_2 <dbl>,
+    ## #   Bsmt_Unf_SF <dbl>, Total_Bsmt_SF <dbl>, Heating_QC <fct>,
     ## #   Central_Air <fct>, Electrical <fct>, First_Flr_SF <dbl>,
     ## #   Second_Flr_SF <dbl>, Gr_Liv_Area <dbl>, Bsmt_Full_Bath <dbl>,
     ## #   Bsmt_Half_Bath <dbl>, Full_Bath <dbl>, Half_Bath <dbl>,
     ## #   Bedroom_AbvGr <dbl>, Kitchen_AbvGr <dbl>, TotRms_AbvGrd <dbl>,
-    ## #   Fireplaces <dbl>, Garage_Type <dbl>, Garage_Finish <fct>,
-    ## #   Garage_Cars <dbl>, Garage_Area <dbl>, Garage_Cond <dbl>, Paved_Drive <fct>,
+    ## #   Fireplaces <dbl>, Garage_Type <fct>, Garage_Finish <fct>,
+    ## #   Garage_Cars <dbl>, Garage_Area <dbl>, Garage_Cond <fct>, Paved_Drive <fct>,
     ## #   Wood_Deck_SF <dbl>, Open_Porch_SF <dbl>, Enclosed_Porch <dbl>,
     ## #   Three_season_porch <dbl>, Screen_Porch <dbl>, Pool_Area <dbl>, Fence <fct>,
-    ## #   Misc_Val <dbl>, Mo_Sold <dbl>, Year_Sold <dbl>, Sale_Type <dbl>,
-    ## #   Sale_Condition <dbl>, Longitude <dbl>, Latitude <dbl>, Sale_Price <int>
+    ## #   Misc_Val <dbl>, Mo_Sold <dbl>, Year_Sold <dbl>, Sale_Type <fct>,
+    ## #   Sale_Condition <fct>, Longitude <dbl>, Latitude <dbl>, Sale_Price <int>
 
 ``` r
 skim(baked_train)
@@ -775,8 +775,8 @@ skim(baked_train)
 | Number of columns                                | 61           |
 | \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_   |              |
 | Column type frequency:                           |              |
-| factor                                           | 12           |
-| numeric                                          | 49           |
+| factor                                           | 27           |
+| numeric                                          | 34           |
 | \_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_ |              |
 | Group variables                                  | None         |
 
@@ -784,47 +784,51 @@ Data summary
 
 **Variable type: factor**
 
-| skim\_variable | n\_missing | complete\_rate | ordered | n\_unique | top\_counts                             |
-| :------------- | ---------: | -------------: | :------ | --------: | :-------------------------------------- |
-| MS\_Zoning     |          0 |              1 | FALSE   |         7 | Res: 1571, Res: 338, Flo: 102, Res: 19  |
-| Lot\_Shape     |          0 |              1 | FALSE   |         4 | Reg: 1321, Sli: 666, Mod: 54, Irr: 12   |
-| Lot\_Config    |          0 |              1 | FALSE   |         5 | Ins: 1494, Cor: 361, Cul: 127, FR2: 62  |
-| House\_Style   |          0 |              1 | FALSE   |         8 | One: 1030, Two: 614, One: 233, SLv: 84  |
-| Roof\_Style    |          0 |              1 | FALSE   |         6 | Gab: 1627, Hip: 387, Gam: 17, Fla: 14   |
-| Foundation     |          0 |              1 | FALSE   |         6 | PCo: 916, CBl: 870, Brk: 226, Sla: 30   |
-| Bsmt\_Exposure |          0 |              1 | FALSE   |         5 | No: 1348, Av: 284, Gd: 205, Mn: 163     |
-| Central\_Air   |          0 |              1 | FALSE   |         2 | Y: 1916, N: 137                         |
-| Electrical     |          0 |              1 | FALSE   |         5 | SBr: 1873, Fus: 140, Fus: 32, Fus: 7    |
-| Garage\_Finish |          0 |              1 | FALSE   |         4 | Unf: 863, RFn: 567, Fin: 512, No\_: 111 |
-| Paved\_Drive   |          0 |              1 | FALSE   |         3 | Pav: 1862, Dir: 140, Par: 51            |
-| Fence          |          0 |              1 | FALSE   |         5 | No\_: 1646, Min: 243, Goo: 80, Goo: 75  |
+| skim\_variable   | n\_missing | complete\_rate | ordered | n\_unique | top\_counts                              |
+| :--------------- | ---------: | -------------: | :------ | --------: | :--------------------------------------- |
+| MS\_SubClass     |          0 |              1 | FALSE   |         5 | One: 753, oth: 549, Two: 395, One: 211   |
+| MS\_Zoning       |          0 |              1 | FALSE   |         3 | Res: 1571, Res: 338, oth: 144            |
+| Lot\_Shape       |          0 |              1 | FALSE   |         3 | Reg: 1321, Sli: 666, oth: 66             |
+| Lot\_Config      |          0 |              1 | FALSE   |         4 | Ins: 1494, Cor: 361, Cul: 127, oth: 71   |
+| Neighborhood     |          0 |              1 | FALSE   |         8 | oth: 892, Nor: 298, Col: 187, Old: 171   |
+| Condition\_1     |          0 |              1 | FALSE   |         3 | Nor: 1768, oth: 165, Fee: 120            |
+| Bldg\_Type       |          0 |              1 | FALSE   |         3 | One: 1692, oth: 183, Twn: 178            |
+| House\_Style     |          0 |              1 | FALSE   |         4 | One: 1030, Two: 614, One: 233, oth: 176  |
+| Overall\_Cond    |          0 |              1 | FALSE   |         4 | Ave: 1168, Abo: 370, Goo: 280, oth: 235  |
+| Roof\_Style      |          0 |              1 | FALSE   |         3 | Gab: 1627, Hip: 387, oth: 39             |
+| Exterior\_1st    |          0 |              1 | FALSE   |         6 | Vin: 718, Met: 321, Wd : 301, HdB: 295   |
+| Exterior\_2nd    |          0 |              1 | FALSE   |         6 | Vin: 710, Met: 321, Wd : 287, oth: 273   |
+| Mas\_Vnr\_Type   |          0 |              1 | FALSE   |         4 | Non: 1231, Brk: 624, Sto: 179, oth: 19   |
+| Exter\_Cond      |          0 |              1 | FALSE   |         3 | Typ: 1792, Goo: 204, oth: 57             |
+| Foundation       |          0 |              1 | FALSE   |         4 | PCo: 916, CBl: 870, Brk: 226, oth: 41    |
+| Bsmt\_Exposure   |          0 |              1 | FALSE   |         5 | No: 1348, Av: 284, Gd: 205, Mn: 163      |
+| BsmtFin\_Type\_1 |          0 |              1 | FALSE   |         7 | GLQ: 599, Unf: 588, ALQ: 313, Rec: 207   |
+| Heating\_QC      |          0 |              1 | FALSE   |         4 | Exc: 1052, Typ: 593, Goo: 340, oth: 68   |
+| Central\_Air     |          0 |              1 | FALSE   |         2 | Y: 1916, N: 137                          |
+| Electrical       |          0 |              1 | FALSE   |         3 | SBr: 1873, Fus: 140, oth: 40             |
+| Garage\_Type     |          0 |              1 | FALSE   |         5 | Att: 1230, Det: 534, Bui: 124, No\_: 109 |
+| Garage\_Finish   |          0 |              1 | FALSE   |         4 | Unf: 863, RFn: 567, Fin: 512, No\_: 111  |
+| Garage\_Cond     |          0 |              1 | FALSE   |         3 | Typ: 1870, No\_: 111, oth: 72            |
+| Paved\_Drive     |          0 |              1 | FALSE   |         3 | Pav: 1862, Dir: 140, oth: 51             |
+| Fence            |          0 |              1 | FALSE   |         3 | No\_: 1646, Min: 243, oth: 164           |
+| Sale\_Type       |          0 |              1 | FALSE   |         3 | WD : 1775, New: 159, oth: 119            |
+| Sale\_Condition  |          0 |              1 | FALSE   |         4 | Nor: 1692, Par: 164, Abn: 139, oth: 58   |
 
 **Variable type: numeric**
 
 | skim\_variable       | n\_missing | complete\_rate |     mean |      sd |       p0 |       p25 |       p50 |       p75 |      p100 | hist  |
 | :------------------- | ---------: | -------------: | -------: | ------: | -------: | --------: | --------: | --------: | --------: | :---- |
-| MS\_SubClass         |          0 |              1 |      0.0 |     1.0 |   \-0.99 |    \-0.99 | \-8.0e-02 |      0.38 |      2.43 | ▇▆▂▂▂ |
 | Lot\_Frontage        |          0 |              1 |      0.0 |     1.0 |   \-1.69 |    \-0.47 |   1.5e-01 |      0.62 |      7.60 | ▇▇▁▁▁ |
 | Lot\_Area            |          0 |              1 |      0.0 |     1.0 |   \-1.09 |    \-0.35 | \-9.0e-02 |      0.17 |     25.26 | ▇▁▁▁▁ |
-| Neighborhood         |          0 |              1 |      0.0 |     1.0 |   \-1.12 |    \-0.79 | \-3.0e-01 |      0.69 |      3.14 | ▇▃▂▁▁ |
-| Condition\_1         |          0 |              1 |      0.0 |     1.0 |   \-2.35 |    \-0.04 | \-4.0e-02 |    \-0.04 |      6.88 | ▁▇▁▁▁ |
-| Bldg\_Type           |          0 |              1 |      0.0 |     1.0 |   \-0.43 |    \-0.43 | \-4.3e-01 |    \-0.43 |      2.76 | ▇▁▁▁▁ |
-| Overall\_Cond        |          0 |              1 |      0.0 |     1.0 |   \-4.17 |    \-0.52 | \-5.2e-01 |      0.40 |      3.14 | ▁▁▇▅▁ |
 | Year\_Built          |          0 |              1 |      0.0 |     1.0 |   \-3.25 |    \-0.62 |   6.0e-02 |      0.95 |      1.28 | ▁▂▃▆▇ |
 | Year\_Remod\_Add     |          0 |              1 |      0.0 |     1.0 |   \-1.66 |    \-0.89 |   4.1e-01 |      0.94 |      1.23 | ▅▂▂▃▇ |
-| Exterior\_1st        |          0 |              1 |      0.0 |     1.0 |   \-2.75 |    \-0.58 |   7.8e-01 |      0.78 |      1.32 | ▁▁▅▁▇ |
-| Exterior\_2nd        |          0 |              1 |      0.0 |     1.0 |   \-2.70 |    \-0.71 |   7.8e-01 |      0.78 |      1.28 | ▁▃▂▂▇ |
-| Mas\_Vnr\_Type       |          0 |              1 |      0.0 |     1.0 |   \-2.35 |    \-1.39 |   5.3e-01 |      0.53 |      1.49 | ▁▅▁▇▁ |
 | Mas\_Vnr\_Area       |          0 |              1 |      0.0 |     1.0 |   \-0.57 |    \-0.57 | \-5.7e-01 |      0.34 |      8.36 | ▇▁▁▁▁ |
-| Exter\_Cond          |          0 |              1 |      0.0 |     1.0 |   \-4.83 |      0.37 |   3.7e-01 |      0.37 |      0.37 | ▁▁▁▁▇ |
-| BsmtFin\_Type\_1     |          0 |              1 |      0.0 |     1.0 |   \-1.41 |    \-0.52 | \-5.2e-01 |      1.27 |      1.27 | ▅▆▁▁▇ |
 | BsmtFin\_SF\_1       |          0 |              1 |      0.0 |     1.0 |   \-1.41 |    \-0.52 | \-5.2e-01 |      1.27 |      1.27 | ▅▆▁▁▇ |
 | BsmtFin\_SF\_2       |          0 |              1 |      0.0 |     1.0 |   \-0.30 |    \-0.30 | \-3.0e-01 |    \-0.30 |      8.24 | ▇▁▁▁▁ |
 | Bsmt\_Unf\_SF        |          0 |              1 |      0.0 |     1.0 |   \-1.28 |    \-0.78 | \-2.1e-01 |      0.54 |      4.06 | ▇▅▂▁▁ |
 | Total\_Bsmt\_SF      |          0 |              1 |      0.0 |     1.0 |   \-2.47 |    \-0.63 | \-1.4e-01 |      0.58 |      5.06 | ▂▇▃▁▁ |
-| Heating\_QC          |          0 |              1 |      0.0 |     1.0 |   \-0.88 |    \-0.88 | \-8.8e-01 |      1.43 |      1.43 | ▇▁▂▁▅ |
 | First\_Flr\_SF       |          0 |              1 |      0.0 |     1.0 |   \-2.15 |    \-0.73 | \-2.0e-01 |      0.59 |      6.94 | ▇▇▁▁▁ |
-| Second\_Flr\_SF      |          0 |              1 |      0.0 |     1.0 |   \-0.71 |    \-0.71 | \-7.1e-01 |      0.68 |      2.74 | ▇▂▂▁▁ |
+| Second\_Flr\_SF      |          0 |              1 |      0.0 |     1.0 |   \-0.79 |    \-0.79 | \-7.9e-01 |      0.86 |      4.05 | ▇▃▂▁▁ |
 | Gr\_Liv\_Area        |          0 |              1 |      0.0 |     1.0 |   \-2.36 |    \-0.74 | \-1.2e-01 |      0.49 |      6.42 | ▅▇▂▁▁ |
 | Bsmt\_Full\_Bath     |          0 |              1 |      0.0 |     1.0 |   \-0.82 |    \-0.82 | \-8.2e-01 |      1.09 |      4.89 | ▇▆▁▁▁ |
 | Bsmt\_Half\_Bath     |          0 |              1 |      0.0 |     1.0 |   \-0.25 |    \-0.25 | \-2.5e-01 |    \-0.25 |      7.73 | ▇▁▁▁▁ |
@@ -834,10 +838,8 @@ Data summary
 | Kitchen\_AbvGr       |          0 |              1 |      0.0 |     1.0 |   \-5.06 |    \-0.19 | \-1.9e-01 |    \-0.19 |      9.53 | ▁▇▁▁▁ |
 | TotRms\_AbvGrd       |          0 |              1 |      0.0 |     1.0 |   \-2.86 |    \-0.92 | \-2.7e-01 |      0.38 |      4.91 | ▁▇▆▁▁ |
 | Fireplaces           |          0 |              1 |      0.0 |     1.0 |   \-0.94 |    \-0.94 |   6.1e-01 |      0.61 |      3.71 | ▇▇▁▁▁ |
-| Garage\_Type         |          0 |              1 |      0.0 |     1.0 |   \-0.76 |    \-0.76 | \-7.6e-01 |      1.19 |      2.16 | ▇▁▁▃▁ |
 | Garage\_Cars         |          0 |              1 |      0.0 |     1.0 |   \-2.31 |    \-1.01 |   3.0e-01 |      0.30 |      4.22 | ▁▃▇▂▁ |
 | Garage\_Area         |          0 |              1 |      0.0 |     1.0 |   \-2.20 |    \-0.69 |   3.0e-02 |      0.47 |      4.24 | ▂▇▃▁▁ |
-| Garage\_Cond         |          0 |              1 |      0.0 |     1.0 |   \-6.11 |      0.29 |   2.9e-01 |      0.29 |      0.29 | ▁▁▁▁▇ |
 | Wood\_Deck\_SF       |          0 |              1 |      0.0 |     1.0 |   \-0.76 |    \-0.76 | \-7.6e-01 |      0.61 |      6.21 | ▇▂▁▁▁ |
 | Open\_Porch\_SF      |          0 |              1 |      0.0 |     1.0 |   \-0.70 |    \-0.70 | \-3.1e-01 |      0.33 |     10.18 | ▇▁▁▁▁ |
 | Enclosed\_Porch      |          0 |              1 |      0.0 |     1.0 |   \-0.36 |    \-0.36 | \-3.6e-01 |    \-0.36 |     15.01 | ▇▁▁▁▁ |
@@ -847,8 +849,6 @@ Data summary
 | Misc\_Val            |          0 |              1 |      0.0 |     1.0 |   \-0.09 |    \-0.09 | \-9.0e-02 |    \-0.09 |     30.34 | ▇▁▁▁▁ |
 | Mo\_Sold             |          0 |              1 |      0.0 |     1.0 |   \-1.92 |    \-0.81 | \-7.0e-02 |      0.67 |      2.14 | ▅▆▇▃▃ |
 | Year\_Sold           |          0 |              1 |      0.0 |     1.0 |   \-1.37 |    \-0.61 |   1.6e-01 |      0.92 |      1.69 | ▇▇▇▇▃ |
-| Sale\_Type           |          0 |              1 |      0.0 |     1.0 |   \-4.30 |      0.34 |   3.4e-01 |      0.34 |      0.34 | ▁▁▁▁▇ |
-| Sale\_Condition      |          0 |              1 |      0.0 |     1.0 |   \-3.45 |      0.21 |   2.1e-01 |      0.21 |      1.13 | ▁▁▁▁▇ |
 | Longitude            |          0 |              1 |      0.0 |     1.0 |   \-1.96 |    \-0.68 |   4.0e-02 |      0.80 |      2.57 | ▅▅▇▆▁ |
 | Latitude             |          0 |              1 |      0.0 |     1.0 |   \-2.61 |    \-0.67 |   1.0e-02 |      0.83 |      1.58 | ▂▂▇▇▇ |
 | Sale\_Price          |          0 |              1 | 180996.3 | 80258.9 | 13100.00 | 129500.00 |   1.6e+05 | 213500.00 | 755000.00 | ▇▇▁▁▁ |
@@ -892,9 +892,9 @@ training dilakukan menggunakan fungsi `train()`.
 
 ``` r
 system.time(
-pls_fit_cv <- train(
+model_fit_cv <- train(
   blueprint, 
-  data = ames_train, 
+  data = data_train, 
   method = "pls", 
   trControl = cv, 
   metric = "RMSE"
@@ -903,10 +903,10 @@ pls_fit_cv <- train(
 ```
 
     ##    user  system elapsed 
-    ##   5.857   0.067   5.952
+    ##   11.02    0.25   15.22
 
 ``` r
-pls_fit_cv
+model_fit_cv
 ```
 
     ## Partial Least Squares 
@@ -914,47 +914,47 @@ pls_fit_cv
     ## 2053 samples
     ##   73 predictor
     ## 
-    ## Recipe steps: nzv, integer, center, scale 
+    ## Recipe steps: nzv, other, center, scale 
     ## Resampling: Cross-Validated (10 fold) 
     ## Summary of sample sizes: 1848, 1846, 1848, 1846, 1848, 1849, ... 
     ## Resampling results across tuning parameters:
     ## 
     ##   ncomp  RMSE      Rsquared   MAE     
-    ##   1      38645.44  0.7705851  26958.18
-    ##   2      34085.27  0.8223980  23584.28
-    ##   3      32671.61  0.8372443  22472.29
+    ##   1      37568.48  0.7834169  26309.26
+    ##   2      34654.32  0.8157351  24051.43
+    ##   3      32925.03  0.8339302  22646.62
     ## 
     ## RMSE was used to select the optimal model using the smallest value.
     ## The final value used for the model was ncomp = 3.
 
-Model terbaik dipilih
+Proses *training* berlangsung selama 16.579 detik. Model terbaik dipilih
 berdasarkan nilai **RMSE** terbesar. Berdasarkan kriteria tersebut model
 yang terpilih adalalah model yang memiliki nilai `ncomp` = 3. Nilai
 **RMSE** rata-rata model terbaik adalah sebagai berikut:
 
 ``` r
-pls_rmse <- pls_fit_cv$results %>%
+rmse <- model_fit_cv$results %>%
   arrange(RMSE) %>%
   slice(1) %>%
   select(RMSE) %>%
   pull()
-pls_rmse
+rmse
 ```
 
-    ## [1] 32671.61
+    ## [1] 32925.03
 
 Berdasarkan hasil yang diperoleh, nilai **RMSE** rata-rata model sebesar
-3.267161110^{4}.
+3.292502710^{4}.
 
 Visualisasi hubungan antar parameter dan **RMSE** ditampilkan pada
 gambar berikut:
 
 ``` r
 # visualisasi
-ggplot(pls_fit_cv)
+ggplot(model_fit_cv)
 ```
 
-![](temp_files/figure-gfm/pc-cv-vis-1.png)<!-- -->
+![](pl-regression_files/figure-gfm/pc-cv-vis-1.png)<!-- -->
 
 ## Model Akhir
 
@@ -967,48 +967,48 @@ membuat ukuran objek menjadi besar. Untuk menguranginya, kita perlu
 mengambil objek model final dari objek hasil validasi silang.
 
 ``` r
-pls_fit <- pls_fit_cv$finalModel
+model_fit <- model_fit_cv$finalModel
 ```
 
 Untuk melihat performa sebuah model regresi adalah dengan melihat
 visualisasi nilai residunya. Berikut adalah sintaks yang digunakan:
 
 ``` r
-plot(pls_fit)
+plot(model_fit)
 ```
 
-![](temp_files/figure-gfm/pls-res-vis-1.png)<!-- -->
+![](pl-regression_files/figure-gfm/pls-res-vis-1.png)<!-- -->
 
 Ringkasan model ditampilkan sebagai berikut:
 
 ``` r
-summary(pls_fit)
+summary(model_fit)
 ```
 
-    ## Data:    X dimension: 2053 97 
+    ## Data:    X dimension: 2053 115 
     ##  Y dimension: 2053 1
     ## Fit method: oscorespls
     ## Number of components considered: 3
     ## TRAINING: % variance explained
     ##           1 comps  2 comps  3 comps
-    ## X           13.94    17.75    22.71
-    ## .outcome    76.94    82.96    84.64
+    ## X           15.89    21.75    26.47
+    ## .outcome    77.96    81.83    84.08
 
 Model yang dihasilkan selanjutnya dapat kita uji lagi menggunakan data
 baru. Berikut adalah perhitungan nilai **RMSE** model pada data *test*.
 
 ``` r
-pred_test <- predict(pls_fit, baked_test)
+pred_test <- predict(model_fit, baked_test)
 
 ## RMSE
 rmse <- RMSE(pred_test, baked_test$Sale_Price, na.rm = TRUE)
 rmse
 ```
 
-    ## [1] 42014.4
+    ## [1] 41920.93
 
 Berdasarkan hasil evaluasi diperoleh nilai akurasi sebesar
-4.201439910^{4}
+4.192092610^{4}
 
 ## Interpretasi Fitur
 
@@ -1016,11 +1016,11 @@ Untuk mengetahui variabel yang paling berpengaruh secara global terhadap
 hasil prediksi model, kita dapat menggunakan plot *variable importance*.
 
 ``` r
-vi <- vip(pls_fit_cv, num_features = 10)
+vi <- vip(model_fit_cv, num_features = 10)
 vi
 ```
 
-![](temp_files/figure-gfm/pls-vip-1.png)<!-- -->
+![](pl-regression_files/figure-gfm/pls-vip-1.png)<!-- -->
 
 Berdasarkan terdapat 4 buah variabel yang berpengaruh besar terhadap
 prediksi yang dihasilkan oleh model, antara lain: Gr\_Liv\_Area,
@@ -1028,20 +1028,20 @@ Total\_Bsmt\_SF, First\_Flr\_SF, Garage\_Cars. Untuk melihat efek
 masing-masing variabel tersebut, jalankan perintah berikut:
 
 ``` r
-p1 <- pdp::partial(pls_fit_cv, pred.var = as.character(vi$data[1,1] %>% pull())) %>% 
+p1 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[1,1] %>% pull())) %>% 
   autoplot() 
 
-p2 <- pdp::partial(pls_fit_cv, pred.var = as.character(vi$data[2,1] %>% pull())) %>% 
+p2 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[2,1] %>% pull())) %>% 
   autoplot()
 
-p3 <- pdp::partial(pls_fit_cv, pred.var = as.character(vi$data[3,1] %>% pull())) %>% 
+p3 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[3,1] %>% pull())) %>% 
   autoplot()
   
 
-p4 <- pdp::partial(pls_fit_cv, pred.var = as.character(vi$data[4,1] %>% pull())) %>% 
+p4 <- pdp::partial(model_fit_cv, pred.var = as.character(vi$data[4,1] %>% pull())) %>% 
   autoplot()
 
 grid.arrange(p1, p2, p3, p4, nrow = 2)
 ```
 
-![](temp_files/figure-gfm/pls-pdp-1.png)<!-- -->
+![](pl-regression_files/figure-gfm/pls-pdp-1.png)<!-- -->
