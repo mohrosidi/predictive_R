@@ -15,10 +15,10 @@ Repository ini berisi kode sumber dari worshop **Predictive Analytics with R**. 
 4. [Regularized Regression](https://github.com/mohrosidi/predictive_R/blob/master/docs/regularized-regression.md)
 5. [Multivariate Adaptive Regression Splines](https://github.com/mohrosidi/predictive_R/blob/master/docs/mars-regression.md#multivariate-adaptive-regression-splines)
 6. [KNN](https://github.com/mohrosidi/predictive_R/blob/master/docs/knn-regression.md)
-7. [Decision Trees]()
-8. [Bagging]()
-9. [Random Forest]()
-10. [Gradient Boosting Model]()
+7. [Decision Trees](https://github.com/mohrosidi/predictive_R/blob/master/docs/dt-regression.md#decision-trees)
+8. [Bagging](https://github.com/mohrosidi/predictive_R/blob/master/docs/bagging-regression.md#bagging)
+9. [Random Forest](https://github.com/mohrosidi/predictive_R/blob/master/docs/rf-regression.md#random-forest)
+10. [Gradient Boosting Model](https://github.com/mohrosidi/predictive_R/blob/master/docs/gb-regression.md#gradient-boost-model)
 11. [Support Vector Machines]() `in progress`
 
 ## Dokumentasi Klasifikasi Biner
@@ -36,9 +36,8 @@ Repository ini berisi kode sumber dari worshop **Predictive Analytics with R**. 
 1. [Logistic Regression]() `in progress`
 2. [KNN](https://github.com/mohrosidi/predictive_R/blob/master/docs/knn-classification.md#k-nearest-neighbors)
 3. [Naive Bayes](https://github.com/mohrosidi/predictive_R/blob/master/docs/naive-bayes-classification.md)
-4. [Decision Trees]https://github.com/mohrosidi/predictive_R/blob/master/docs/dt-classification.md)
+4. [Decision Trees](https://github.com/mohrosidi/predictive_R/blob/master/docs/dt-classification.md)
 5. [Bagging](https://github.com/mohrosidi/predictive_R/blob/master/docs/bagging-classification.md#bagging)
 6. [Random Forest](https://github.com/mohrosidi/predictive_R/blob/master/docs/rf-classification.md#random-forest)
 7. [Gradient Boosting Model](https://github.com/mohrosidi/predictive_R/blob/master/docs/gb-classification.md#gradient-boosting) 
 8. [Support Vector Machines]() `in progress`
-
