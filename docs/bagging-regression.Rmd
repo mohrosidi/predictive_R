@@ -1,0 +1,379 @@
+---
+title: "Bagging"
+author: "Moh. Rosidi"
+date: "7/27/2020"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Dataset Ames
+
+Sebuah dataset terkait data properti yang ada di Ames IA. Dataset ini memiliki 82 variabel dan 2930 baris. Untuk informasi lebih lanjut terkait dataset ini, kunjungin tautan berikut:
+
+* <https://ww2.amstat.org/publications/jse/v19n3/decock/DataDocumentation.txt>
+* <http://ww2.amstat.org/publications/jse/v19n3/decock.pdf>
+
+# Persiapan {.tabset}
+
+## Library
+
+Terdapat beberapa paket yang digunakan dalam pembuatan model prediktif menggunakan *tree based algorithm*. Paket-paket ditampilkan sebagai berikut:
+
+```{r import-lib}
+# library pembantu
+library(tidyverse)
+library(rsample)
+library(recipes)
+library(DataExplorer)
+library(skimr)
+library(modeldata)
+
+# library model
+library(caret) 
+library(ipred)
+
+# paket penjelasan model
+library(rpart.plot)  
+library(vip)
+library(pdp)
+```
+
+**Paket Pembantu**
+
+1. `tidyverse` : kumpulan paket dalam bidang data science
+2. `rsample` : membantu proses *data splitting*
+3. `recipes`: membantu proses data pra-pemrosesan
+4. `DataExplorer` : EDA
+5. `skimr` : membuat ringkasan data
+6. `modeldata` : kumpulan dataset untuk membuat model *machine learning*
+
+**Paket untuk Membangun Model**
+
+1. `caret` : berisikan sejumlah fungsi yang dapat merampingkan proses pembuatan model regresi dan klasifikasi
+2. `ipred` : membentuk model *bagging*
+
+**Paket Interpretasi Model**
+
+1. `rpart.plot` : visualisasi *decision trees*
+2. `vip` : visualisasi *variable importance*
+3. `pdp` : visualisasi plot ketergantungan parsial
+
+## Import Dataset
+
+Import dataset dilakukan dengan menggunakan fungsi `data()`. Fungsi ini digunakan untuk mengambil data yang ada dalam sebuah paket.
+
+```{r import-data}
+data("ames")
+```
+
+
+# Data Splitting
+
+Proses *data splitting* dilakukan setelah data di import ke dalam sistem. Hal ini dilakukan untuk memastikan tidak adanya kebocoran data yang mempengaruhi proses pembuatan model. Data dipisah menjadi dua buah set, yaitu: *training* dan *test*. Data *training* adalah data yang akan kita gunakan untuk membentuk model. Seluruh proses sebelum uji model akan menggunakan data *training*. Proses tersebut, antara lain: EDA, *feature engineering*, dan validasi silang. Data *test* hanya digunakan saat kita akan menguji performa model dengan data baru yang belum pernah dilihat sebelumnya.
+
+Terdapat dua buah jenis sampling pada tahapan *data splitting*, yaitu:
+
+1. *random sampling* : sampling acak tanpa mempertimbangkan adanya strata dalam data
+2. *startified random sampling* : sampling dengan memperhatikan strata dalam sebuah variabel.
+
+Dalam proses pembentukan model kali ini, kita akan menggunakan metode kedua dengan tujuan untuk memperoleh distribusi yang seragam dari variabel target (`Sale_Price`).
+
+```{r data-split}
+set.seed(123)
+
+split  <- initial_split(ames, prop = 0.7, strata = "Sale_Price")
+data_train  <- training(split)
+data_test   <- testing(split)
+```
+
+Untuk mengecek distribusi dari kedua set data, kita dapat mevisualisasikan distribusi dari variabel target pada kedua set tersebut.
+
+```{r target-vis}
+# training set
+ggplot(data_train, aes(x = Sale_Price)) + 
+  geom_density() 
+# test set
+ggplot(data_test, aes(x = Sale_Price)) + 
+  geom_density() 
+```
+
+
+# Analisis Data Eksploratif
+
+Analsiis data eksploratif (EDA) ditujukan untuk mengenali data sebelum kita menentukan algoritma yang cocok digunakan untuk menganalisa data lebih lanjut. EDA merupakan sebuah proses iteratif yang secara garis besar menjawab beberapa pertanyaan umum, seperti:
+
+1. Bagaimana distribusi data pada masing-masing variabel?
+2. Apakah terdapat asosiasi atau hubungan antar variabel dalam data?
+
+## Ringkasan Data
+
+Terdapat dua buah fungsi yang digunakan dalam membuat ringkasan data, antara lain:
+
+1. `glimpse()`: varian dari `str()` untuk mengecek struktur data. Fungsi ini menampilkan transpose dari tabel data dengan menambahkan informasi, seperti: jenis data dan dimensi tabel.
+2. `skim()` : fungsi dari paket `skimr` untuk membuat ringkasan data yang lebih detail dibanding `glimpse()`, seperti: statistika deskriptif masing-masing kolom, dan informasi *missing value* dari masing-masing kolom.
+3. `plot_missing()` : fungsi untuk memvisualisasikan persentase *missing value* pada masing-masing variabel atau kolom data
+
+
+```{r glimpse}
+glimpse(data_train)
+```
+
+```{r skim}
+skim(data_train)
+```
+
+```{r missing-vis}
+plot_missing(data_train)
+```
+
+Berdasarkan ringkasan data yang dihasilkan, diketahui dimensi data sebesar 2053 baris dan 74 kolom. Dengan rincian masing-masing kolom, yaitu: 40 kolom dengan jenis data factor dan 34 kolom dengan jenis data numeric. Informasi lain yang diketahui adalah seluruh kolom dalam data tidak memiliki *missing value*.
+
+## Variasi
+
+Variasi dari tiap variabel dapat divisualisasikan dengan menggunakan histogram (numerik) dan baplot (kategorikal).
+
+```{r hist}
+plot_histogram(data_train, ncol = 2L, nrow = 2L)
+```
+
+```{r bar}
+plot_bar(data_train, ncol = 2L, nrow = 2L)
+```
+
+Berdasarkan hasil visualisasi diperoleh bahwa sebagian besar variabel numerik memiliki distribusi yang tidak simetris. Sedangkan pada variabel kategorikal diketahui bahwa terdapat beberapa variabel yang memiliki variasi rendah atau mendekati nol. Untuk mengetahui variabel dengan variabilitas mendekati nol atau nol, dapat menggunakan sintaks berikut:
+
+```{r nzv}
+nzvar <- nearZeroVar(data_train, saveMetrics = TRUE) %>% 
+  rownames_to_column() %>% 
+  filter(nzv)
+nzvar
+```
+
+Berikut adalah ringkasan data pada variabel yang tidak memiliki variasi yang mendekati nol.
+
+```{r wt-nzv}
+without_nzvar <- select(data_train, !nzvar$rowname)
+skim(without_nzvar)
+```
+
+Berikut adalah tabulasi observasi pada masing-masing variabel yang memiliki jumlah kategori >= 10.
+
+```{r count-nominal}
+# MS_SubClass 
+count(data_train, MS_SubClass) %>% arrange(n)
+# Neighborhood
+count(data_train, Neighborhood) %>% arrange(n)
+# Neighborhood
+count(data_train, Exterior_1st) %>% arrange(n)
+# Exterior_2nd
+count(data_train, Exterior_2nd) %>% arrange(n)
+```
+
+## Kovarian
+
+Kovarian dapat dicek melalui visualisasi *heatmap* koefisien korelasi (numerik) atau menggunakan *boxplot* (kontinu vs kategorikal)
+
+```{r heatmap}
+plot_correlation(data_train, type = "continuous", 
+                 cor_args = list(method = "spearman"))
+```
+
+```{r boxplot}
+plot_boxplot(data_train, by = "Sale_Price", ncol = 2, nrow = 1)
+```
+
+# Target and Feature Engineering
+
+*Data preprocessing* dan *engineering* mengacu pada proses penambahan, penghapusan, atau transformasi data. Waktu yang diperlukan untuk memikirkan identifikasi kebutuhan *data engineering* dapat berlangsung cukup lama dan proprsinya akan menjadi yang terbesar dibandingkan analisa lainnya. Hal ini disebabkan karena kita perlu untuk memahami data apa yang akan kita oleh atau diinputkan ke dalam model.
+
+Untuk menyederhanakan proses *feature engineerinh*, kita harus memikirkannya sebagai sebuah *blueprint* dibanding melakukan tiap tugasnya secara satu persatu. Hal ini membantu kita dalam dua hal:
+
+1. Berpikir secara berurutan
+2. Mengaplikasikannya secara tepat selama proses *resampling*
+
+## Urutan Langkah-Langkah Feature Engineering
+
+Memikirkan *feature engineering* sebagai sebuah *blueprint* memaksa kita untuk memikirkan urutan langkah-langkah *preprocessing* data. Meskipun setiap masalah mengharuskan kita untuk memikirkan efek *preprocessing* berurutan, ada beberapa saran umum yang harus kita pertimbangkan:
+
+* Jika menggunakan log atau transformasi Box-Cox, jangan memusatkan data terlebih dahulu atau melakukan operasi apa pun yang dapat membuat data menjadi tidak positif. Atau, gunakan transformasi Yeo-Johnson sehingga kita tidak perlu khawatir tentang hal ini.
+* *One-hot* atau *dummy encoding* biasanya menghasilkan data jarang (*sparse*) yang dapat digunakan oleh banyak algoritma secara efisien. Jika kita menstandarisasikan data tersebut, kita akan membuat data menjadi padat (*dense*) dan kita kehilangan efisiensi komputasi. Akibatnya, sering kali lebih disukai untuk standardisasi fitur numerik kita dan kemudian *one-hot/dummy endode*.
+* Jika kila mengelompokkan kategori (*lumping*) yang jarang terjadi  secara bersamaan, lakukan sebelum *one-hot/dummy endode*.
+* Meskipun kita dapat melakukan prosedur pengurangan dimensi pada fitur-fitur kategorikal, adalah umum untuk melakukannya terutama pada fitur numerik ketika melakukannya untuk tujuan rekayasa fitur.
+
+Sementara kebutuhan proyek kita mungkin beragam, berikut ini adalah urutan langkah-langkah potensial yang disarankan untuk sebagian besar masalah:
+
+1. Filter fitur dengan varians nol (*zero varians*) atau hampir nol (*near zero varians*).
+2. Lakukan imputasi jika diperlukan.
+3. Normalisasi untuk menyelesaikan *skewness* fitur numerik.
+4. Standardisasi fitur numerik (*centering* dan *scaling*).
+5. Lakukan reduksi dimensi (mis., PCA) pada fitur numerik.
+6. *one-hot/dummy endode* pada fitur kategorikal.
+
+## Meletakkan Seluruh Proses Secara Bersamaan
+
+Untuk mengilustrasikan bagaimana proses ini bekerja bersama menggunakan R, mari kita lakukan penilaian ulang sederhana pada set data `ames` yang kita gunakan  dan lihat apakah beberapa *feature engineering* sederhana meningkatkan kemampuan prediksi model kita. Tapi pertama-tama, kita berkenalan dengat paket `recipe`.
+
+Paket `recipe` ini memungkinkan kita untuk mengembangkan *bluprint feature engineering* secara berurutan. Gagasan di balik `recipe` mirip dengan `caret :: preProcess()` di mana kita ingin membuat *blueprint preprocessing* tetapi menerapkannya nanti dan dalam setiap resample.
+
+Ada tiga langkah utama dalam membuat dan menerapkan rekayasa fitur dengan `recipe`:
+
+1. `recipe()`: tempat kita menentukan langkah-langkah rekayasa fitur untuk membuat *blueprint*.
+2. `prep()`: memperkirakan parameter *feature engineering* berdasarkan data *training*.
+3. `bake()`: terapkan *blueprint* untuk data baru.
+
+Langkah pertama adalah di mana kita menentukan *blueprint*. Dengan proses ini, Kita memberikan formula model yang ingin kita buat (variabel target, fitur, dan data yang menjadi dasarnya) dengan fungsi `recipe()` dan kemudian kita secara bertahap menambahkan langkah-langkah rekayasa fitur dengan fungsi `step_xxx()`. 
+
+Secara umum *tree based model* tidak memerlukan banyak *data preprocessing*. Hal ini disebabkan karena model ini merupakan model non-parameterik dan tidak bergantung pada bentuk distribusi data. Tahapan *preprocessing* dimasudkan untuk menfilter fitur dengan varians nol (*zero varians*) atau hampir nol (*near zero varians*) dan standardisasi variabel untuk mempercepat proses komputasi model. Berikut adalah implementasi tahapan tersebut:
+
+```{r preprocess}
+blueprint <- recipe(Sale_Price ~., data = data_train) %>%
+  # feature filtering
+  step_nzv(all_nominal()) %>%
+  # lumping
+  step_other(all_nominal(), threshold = 0.05) 
+
+blueprint
+```
+
+Selanjutnya, *blueprint* yang telah dibuat dilakukan *training* pada data *training*. Perlu diperhatikan, kita tidak melakukan proses *training* pada data *test* untuk mencegah *data leakage*.
+
+```{r prep}
+prepare <- prep(blueprint, training = data_train)
+prepare
+```
+
+Langkah terakhir adalah mengaplikasikan *blueprint* pada data *training* dan *test* menggunakan fungsi `bake()`.
+
+```{r baked}
+baked_train <- bake(prepare, new_data = data_train)
+baked_test <- bake(prepare, new_data = data_test)
+baked_train
+```
+
+```{r}
+skim(baked_train)
+```
+
+# Bagging
+
+Seperti disebutkan sebelumnya, model pohon tunggal memiliki kekurangan, yaitu: varian yang tinggi. Hal ini berarti algoritma *decision tress* memodelkan *noise* dalam data *training*-nya. Meskipun pemangkasan pohon yang terbentuk membantu mengurangi varians ini, ada metode alternatif yang sebenarnya mengeksploitasi variabilitas pohon tunggal dengan cara yang secara signifikan dapat meningkatkan kinerja lebih dan di atas pohon tunggal. Agregat bootstrap (bagging) adalah salah satu pendekatan yang dapat digunakan (awalnya diusulkan oleh [Breiman, 1996](https://link.springer.com/article/10.1023%2FA%3A1018054314350)).
+
+Bagging menggabungkan dan merata-rata beberapa model. Rata-rata di beberapa pohon mengurangi variabilitas dari satu pohon dan mengurangi overfitting dan meningkatkan kinerja prediksi. Bagging mengikuti tiga langkah sederhana:
+
+1. Buat sampel [bootstrap](http://uc-r.github.io/bootstrapping) $m$ dari data *training*. Sampel bootstrap memungkinkan kita untuk membuat banyak set data yang sedikit berbeda tetapi dengan distribusi yang sama dengan set data *training* secara keseluruhan.
+2. Untuk setiap sampel bootstrap, latih satu pohon regresi tanpa melakukan pemangkasan (*unpruned*)
+3. Lakukan prediksi data *test* pada tiap pohon yang terbentuk dari setiap pohon. Hasil prediksi masing-masing pohon selanjutnya dirata-rata.
+
+![Proses bagging (Sumber: <http://uc-r.github.io/>)](http://uc-r.github.io/public/images/analytics/regression_trees/bagging3.png)
+
+Proses ini sebenarnya dapat diterapkan pada model regresi atau klasifikasi apa pun; Namun, metode ini memberikan peningkatan terbesar pada model yang memiliki varian tinggi. Sebagai contoh, model parametrik yang lebih stabil seperti regresi linier dan splines regresi multi-adaptif cenderung kurang mengalami peningkatan dalam kinerja prediksi.
+
+Salah satu manfaat bagging adalah  rata-rata, sampel bootstrap akan berisi 63% (2/3) bagian dari data *training*. Ini menyisakan sekitar 33% (1/3) data dari sampel yang di-bootstrap. Kita dapat menyebutnya sebagai sampel *out-of-bag* (OOB). Kita dapat menggunakan pengamatan OOB untuk memperkirakan akurasi model, menciptakan proses validasi silang alami.
+
+## Validasi Silang
+
+Spesifikasi validasi silang yang digunakan untuk membuat model bagging sama dengan spesifikasi validasi silang model *decission tree*. Perbedaannya adalah pada argumen `trainControl()` tidak ditambahkan argumen `sample`. Hal ini disebabkan pada model bagging yang dibuat ini tidak dilakukan *parameter tuning*.
+
+```{r bag-cv, cache=TRUE}
+# spesifikasi metode validasi silang
+cv <- trainControl(
+  # possible value: "boot", "boot632", "optimism_boot", "boot_all", "cv", 
+  #                 "repeatedcv", "LOOCV", "LGOCV"
+  method = "cv", 
+  number = 10,
+  # repeats = 5,
+  allowParallel = TRUE
+)
+```
+
+Agumen `method` yang digunakan dalam model ini adalah `"treebag"` yang merupakan `method` yang digunakan jika model bagging yang akan dibuat menggunakan paket `ipred`.
+
+```{r bag-fit, cache=TRUE}
+system.time(
+model_fit_cv <- train(
+  blueprint,
+  data = data_train,
+  method = "treebag",
+  trControl = cv,
+  importance = TRUE
+  )
+)
+
+model_fit_cv
+```
+
+Proses *training* model berlangsung selama 14.053 detik dengan rata-rata **RMSE** yang diperoleh sebesar 36388.33. Nilai ini merupakan peningkatan dari model *decision trees* yang telah dibuat sebelumnya. 
+
+```{r bag-rmse, cache=TRUE}
+rmse <- model_fit_cv$results %>%
+  arrange(RMSE) %>%
+  slice(1) %>%
+  select(RMSE) %>% pull()
+
+rmse
+```
+
+## Model AKhir
+
+Pada tahapan ini, model yang telah di-*training*, diekstrak model akhirnya.
+
+```{r bag-final, cache=TRUE}
+model_fit <- model_fit_cv$finalModel
+```
+
+Untuk melihat performa sebuah model regresi dalam melakukan prediksi, kita dapat melihat plot residu dari model. Untuk melakukannya, jalankan sintaks berikut:
+
+```{r bag-res-vis, cache=TRUE}
+pred_train <- predict(model_fit, baked_train)
+residual <- mutate(baked_train, residual = Sale_Price - pred_train)
+
+# resiual vs actual
+sc <- ggplot(residual, aes(x = Sale_Price, y = residual)) +
+  geom_point()
+# residual distribution
+hs <- ggplot(residual, aes(x = residual)) +
+  geom_histogram()
+
+gridExtra::grid.arrange(sc, hs, ncol = 2)
+```
+
+Pola residu yang terbentuk pada model bagging sama dengan model *decision trees* yang menunjukkan model kesulitan untuk memprediksi nilai `Sale_Price` di atas 400.000.
+
+Adapun performa model bagging pada data baru dapat dicek dengan mengukur nilai **RMSE** model menggunakan data *test*.
+
+```{r bag-rmse-test, cache=TRUE}
+# prediksi Sale_Price data_test
+pred_test <- predict(model_fit, baked_test)
+
+## RMSE
+RMSE(pred_test, baked_test$Sale_Price, na.rm = TRUE)
+```
+
+## Interpretasi Fitur
+
+Untuk melakukan interpretasi terhadap fitur paling berpengaruh dalam model bagging, kita dapat emngetahuinya melalui *varibale importance plot*.
+
+```{r bag-vip, cache=TRUE}
+vip(model_fit_cv, num_features = 10)
+```
+
+Berdasarkan hasil plot, terdapat dua buah variabel paling berpengaruh, yaitu: `Gr_Liv_Area` dan `Total_Bsmt_SF`. Untuk melihat efek dari kedua variabel tersebut terhadap prediksi yang dihasilkan model, kita dapat mengetahuinya melalui *patial plot dependencies*.
+
+```{r bag-pdp, cache=TRUE}
+p1 <- pdp::partial(model_fit_cv, pred.var = "Gr_Liv_Area") %>% autoplot()
+p2 <- pdp::partial(model_fit_cv, pred.var = "Total_Bsmt_SF") %>% autoplot()
+p3 <- pdp::partial(model_fit_cv, pred.var = c("Gr_Liv_Area", "Total_Bsmt_SF")) %>% 
+  pdp::plotPartial(levelplot = FALSE, zlab = "yhat", drape = TRUE, 
+              colorkey = TRUE, screen = list(z = -20, x = -60))
+
+
+gridExtra::grid.arrange(p1, p2, p3, 
+                        ncol=2)
+```
+
+Berdasarkan output yang dihasilkan, kedua variabel tersebut memiliki relasi non-linier dengan variabel `Sale_Price`. Pola unik yang terbentuk pada plot model bagging yang juga terjadi pada *decision tree* adalah kurva yang terbentuk landai pada awal dan naik secara cepat pada rentang nilai yang pendek dan melandai pada akhir dari rentang nilai variabel.
+
+
